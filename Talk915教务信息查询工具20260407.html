@@ -9520,6 +9520,14 @@
                         }
                     }
                     
+                    // 特别处理学生试听转化计算和老师试听转化计算的情况
+                    if (moduleType === 'trial-calc' || moduleType === 'teacher-calc') {
+                        // 检查计算按钮是否已恢复原始文本
+                        if (queryBtn && (queryBtn.textContent === '计算试听转化' || queryBtn.textContent === '开始计算')) {
+                            isStatusComplete = true;
+                        }
+                    }
+                    
                     // 检查是否有错误消息（如果有错误也应该继续执行）
                     let hasError = false;
                     if (statusMessage) {
