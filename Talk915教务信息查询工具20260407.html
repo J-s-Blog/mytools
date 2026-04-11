@@ -9523,8 +9523,17 @@
                     // 特别处理学生试听转化计算和老师试听转化计算的情况
                     if (moduleType === 'trial-calc' || moduleType === 'teacher-calc') {
                         // 检查计算按钮是否已恢复原始文本
-                        if (queryBtn && (queryBtn.textContent === '计算试听转化' || queryBtn.textContent === '开始计算')) {
+                        // 对于学生试听转化计算，原始文本是"计算试听转化"
+                        // 对于老师试听转化计算，不能仅检查"开始计算"，因为这是初始状态
+                        if (moduleType === 'trial-calc' && queryBtn && queryBtn.textContent === '计算试听转化') {
                             isStatusComplete = true;
+                        } else if (moduleType === 'teacher-calc') {
+                            // 对于老师试听转化计算，需要更严格的检查
+                            // 只有当状态消息显示完成，或者结果区域显示时，才认为计算完成
+                            // 不能仅检查按钮文本，因为初始状态就是"开始计算"
+                            if (isStatusComplete || isResultSectionVisible) {
+                                isStatusComplete = true;
+                            }
                         }
                     }
                     
@@ -9535,8 +9544,9 @@
                         hasError = errorMessages.length > 0;
                     }
                     
-                    // 综合判断：(按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)) 或 有错误
-                    if ((isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) || hasError) {
+                    // 综合判断：(按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)) 或 有错误 或 (计算相关模块的按钮文本已恢复)
+                    if ((isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) || hasError || 
+                        (moduleType === 'trial-calc' && queryBtn && queryBtn.textContent === '计算试听转化')) {
                         addTaskLog(`${moduleType}查询完成`);
                         
                         // 收集结果数据
