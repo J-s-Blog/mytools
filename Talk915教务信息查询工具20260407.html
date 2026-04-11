@@ -9449,9 +9449,11 @@
         async function waitForQueryAndExport(moduleType, exportBtnId, taskName, queryBtn) {
             addTaskLog(`等待${moduleType}查询完成...`);
             
-            // 等待查询完成（最多等待10分钟）
-            const maxWaitTime = 10 * 60 * 1000; // 10分钟
-            const checkInterval = 2000; // 每2秒检查一次
+            // 等待查询完成（根据模块类型设置不同的最大等待时间）
+            // 试听转化相关模块数据量大，设置更长的等待时间
+            const isTrialRelated = ['trial', 'trial-calc', 'teacher-calc'].includes(moduleType);
+            const maxWaitTime = isTrialRelated ? 30 * 60 * 1000 : 10 * 60 * 1000; // 试听转化30分钟，其他10分钟
+            const checkInterval = 3000; // 每3秒检查一次，减少性能消耗
             let waitedTime = 0;
             let worker = null;
             
@@ -9511,15 +9513,22 @@
                     if (statusMessage) {
                         const successMessages = statusMessage.querySelectorAll('.success-message');
                         for (const msg of successMessages) {
-                            if (msg.textContent.includes('完成')) {
+                            if (msg.textContent.includes('完成') || msg.textContent.includes('已保存')) {
                                 isStatusComplete = true;
                                 break;
                             }
                         }
                     }
                     
-                    // 综合判断：按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)
-                    if (isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) {
+                    // 检查是否有错误消息（如果有错误也应该继续执行）
+                    let hasError = false;
+                    if (statusMessage) {
+                        const errorMessages = statusMessage.querySelectorAll('.error-message');
+                        hasError = errorMessages.length > 0;
+                    }
+                    
+                    // 综合判断：(按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)) 或 有错误
+                    if ((isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) || hasError) {
                         addTaskLog(`${moduleType}查询完成`);
                         
                         // 收集结果数据
@@ -9539,7 +9548,9 @@
                         isExportBtnEnabled,
                         isResultSectionVisible,
                         isStatusComplete,
-                        waitedTime
+                        hasError,
+                        waitedTime,
+                        maxWaitTime
                     });
                     
                     // 超时检查
