@@ -9703,7 +9703,7 @@ function exportRegisteredUsers() {
                 return;
             }
             
-            const headers = [...data[0], '注册日期', '剩余课时', '套餐数量', '购买套餐', '用户来源', '跟进业务员', '跟进经销商', '最初推荐人'];
+            const headers = [...data[0], '注册日期', '套餐课时', '剩余课时', '套餐数量', '购买套餐', '用户来源', '跟进业务员', '跟进经销商', '最初推荐人'];
             const rows = data.slice(1);
             
             let html = '<table class="table table-bordered table-striped" style="width: 100%; border-collapse: collapse;">';
@@ -9880,10 +9880,11 @@ function exportRegisteredUsers() {
                           }
                           
                           let totalBalance = 0;
+                          let totalInitialPoint = 0;
                           let packageList = [];
                           
-                          // 如果需要查询套餐信息且teacherArea为1
-                          if (queryPackage && userInfo.teacherArea === '1') {
+                          // 强制执行套餐查询，对所有用户ID或手机号都查询套餐信息
+                          if (queryPackage) {
                               fetch(`https://www.talk915.com/users/studentManage/queryPackageList/${userInfo.userId}`, {
                                   method: 'GET',
                                   headers: {
@@ -9894,13 +9895,14 @@ function exportRegisteredUsers() {
                                     if (packageData.resultCode === 0 && packageData.resultData) {
                                         packageData.resultData.forEach(pkg => {
                                             totalBalance += pkg.balance || 0;
+                                            totalInitialPoint += pkg.initialPoint || 0;
                                             let pkgCreateTime = '';
                                             if (pkg.createTime) {
                                                 // 处理时区问题，确保日期显示正确
                                                 const date = new Date(pkg.createTime);
                                                 pkgCreateTime = date.toISOString().split('T')[0];
                                             }
-                                            packageList.push(`${pkgCreateTime}-${pkg.productName}`);
+                                            packageList.push(`${pkgCreateTime}-${pkg.productName} ${pkg.initialPoint || 0}/${pkg.balance || 0}`);
                                         });
                                     }
                                     
@@ -9981,6 +9983,7 @@ function exportRegisteredUsers() {
                                                                 userId: userInfo.userId,
                                                                 createTime: createTime,
                                                                 balance: totalBalance,
+                                                                totalInitialPoint: totalInitialPoint,
                                                                 packageCount: packageList.length,
                                                                 packageList: packageList.join('；'),
                                                                 channelName: channelName,
@@ -9996,6 +9999,7 @@ function exportRegisteredUsers() {
                                                                 userId: userInfo.userId,
                                                                 createTime: createTime,
                                                                 balance: totalBalance,
+                                                                totalInitialPoint: totalInitialPoint,
                                                                 packageCount: packageList.length,
                                                                 packageList: packageList.join('；'),
                                                                 channelName: channelName,
@@ -10012,6 +10016,7 @@ function exportRegisteredUsers() {
                                                           userId: userInfo.userId,
                                                           createTime: createTime,
                                                           balance: totalBalance,
+                                                          totalInitialPoint: totalInitialPoint,
                                                           packageCount: packageList.length,
                                                           packageList: packageList.join('；'),
                                                           channelName: channelName,
@@ -10028,6 +10033,7 @@ function exportRegisteredUsers() {
                                                     userId: userInfo.userId,
                                                     createTime: createTime,
                                                     balance: totalBalance,
+                                                    totalInitialPoint: totalInitialPoint,
                                                     packageCount: packageList.length,
                                                     packageList: packageList.join('；'),
                                                     channelName: channelName,
@@ -10044,6 +10050,7 @@ function exportRegisteredUsers() {
                                               userId: userInfo.userId,
                                               createTime: createTime,
                                               balance: totalBalance,
+                                              totalInitialPoint: totalInitialPoint,
                                               packageCount: packageList.length,
                                               packageList: packageList.join('；'),
                                               channelName: '',
@@ -10059,6 +10066,7 @@ function exportRegisteredUsers() {
                                             userId: userInfo.userId,
                                             createTime: createTime,
                                             balance: totalBalance,
+                                            totalInitialPoint: totalInitialPoint,
                                             packageCount: packageList.length,
                                             packageList: packageList.join('；'),
                                             channelName: '',
@@ -10074,6 +10082,7 @@ function exportRegisteredUsers() {
                               userId: '',
                               createTime: '',
                               balance: 0,
+                              totalInitialPoint: 0,
                               packageCount: 0,
                               packageList: '',
                               channelName: '',
@@ -10090,6 +10099,7 @@ function exportRegisteredUsers() {
                           userId: '',
                           createTime: '',
                           balance: 0,
+                          totalInitialPoint: 0,
                           packageCount: 0,
                           packageList: '',
                           channelName: '',
@@ -10139,9 +10149,10 @@ function exportRegisteredUsers() {
                 // 填充查询结果
                 if (result) {
                     html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.createTime}</td>`;
+                    html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.totalInitialPoint}</td>`;
                     html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.balance}</td>`;
                     html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.packageCount || 0}</td>`;
-                    html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.packageList}</td>`;
+                    html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.packageList.replace(/；/g, '；<br>')}</td>`;
                     html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.channelName || ''}</td>`;
                     html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.followSales || ''}</td>`;
                     html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.followDealer || ''}</td>`;
@@ -10194,6 +10205,7 @@ function exportRegisteredUsers() {
                 html += '<thead><tr>';
                 html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd; background-color: #f8f9fa;">用户ID/手机号</th>';
                 html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd; background-color: #f8f9fa;">注册日期</th>';
+                html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd; background-color: #f8f9fa;">套餐课时</th>';
                 html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd; background-color: #f8f9fa;">剩余课时</th>';
                 html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd; background-color: #f8f9fa;">套餐数量</th>';
                 html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd; background-color: #f8f9fa;">购买套餐</th>';
@@ -10206,9 +10218,10 @@ function exportRegisteredUsers() {
                 html += '<tr>';
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.id}</td>`;
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.createTime}</td>`;
+                html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.totalInitialPoint}</td>`;
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.balance}</td>`;
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.packageCount || 0}</td>`;
-                html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.packageList}</td>`;
+                html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.packageList.replace(/；/g, '；<br>')}</td>`;
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.channelName || ''}</td>`;
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.followSales || ''}</td>`;
                 html += `<td style="padding: 6px; border: 1px solid #ddd;">${result.followDealer || ''}</td>`;
@@ -10236,7 +10249,7 @@ function exportRegisteredUsers() {
             });
             
             // 构建CSV内容
-            const headers = [...userRegPackageImportedData[0], '注册日期', '剩余课时', '套餐数量', '购买套餐', '用户来源', '跟进业务员', '跟进经销商', '最初推荐人'];
+            const headers = [...userRegPackageImportedData[0], '注册日期', '套餐课时', '剩余课时', '套餐数量', '购买套餐', '用户来源', '跟进业务员', '跟进经销商', '最初推荐人'];
             const rows = userRegPackageImportedData.slice(1);
             const idColumnIndex = parseInt(document.getElementById('userRegPackageColumnSelect').value);
             
@@ -10249,9 +10262,10 @@ function exportRegisteredUsers() {
                 const csvRow = [...row];
                 if (result) {
                     csvRow.push(result.createTime);
+                    csvRow.push(result.totalInitialPoint);
                     csvRow.push(result.balance);
                     csvRow.push(result.packageCount || 0);
-                    csvRow.push(`"${result.packageList.replace(/"/g, '""')}"`);
+                    csvRow.push(`"${result.packageList.replace(/"/g, '""').replace(/；/g, '；\n')}"`);
                     csvRow.push(`"${result.channelName ? result.channelName.replace(/"/g, '""') : ''}"`);
                     csvRow.push(`"${result.followSales ? result.followSales.replace(/"/g, '""') : ''}"`);
                     csvRow.push(`"${result.followDealer ? result.followDealer.replace(/"/g, '""') : ''}"`);
