@@ -537,6 +537,7 @@
                             <button class="sub-tab-button active" data-tab="staffSummary">顾问公海数据汇总</button>
                             <button class="sub-tab-button" data-tab="courseSummary">推荐码汇总</button>
                             <button class="sub-tab-button" data-tab="detail">明细表</button>
+                            <button class="sub-tab-button" data-tab="unallocated">待分配用户列表</button>
                         </div>
                         
                         <!-- 顾问汇总表 -->
@@ -595,6 +596,22 @@
                                             <th>总课时</th>
                                             <th>剩余课时</th>
                                             <th>跟进记录</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- 待分配用户列表 -->
+                        <div id="unallocated" class="sub-tab-content">
+                            <div class="table-container">
+                                <table id="unallocatedTable" class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>序号</th>
+                                            <th>用户ID</th>
+                                            <th>注册时间</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -1589,6 +1606,157 @@
             }
         }
         
+        // 查询待分配用户数据
+        async function queryUnallocatedUsers() {
+            console.log('开始查询待分配用户数据');
+            const token = localStorage.getItem('talk915_token');
+            if (!token) {
+                console.log('没有token，无法查询待分配用户数据');
+                return;
+            }
+            
+            // 使用局部变量来跟踪请求状态，避免与全局isRequesting冲突
+            let isLocalRequesting = true;
+            
+            const createStartTime = document.getElementById('createStartTime').value;
+            const createEndTime = document.getElementById('createEndTime').value;
+            console.log('查询时间范围:', createStartTime, '至', createEndTime);
+            
+            try {
+                // 直接查询，pageSize设置为1000，足够容纳所有待分配用户
+                const payload = {
+                    "userBindType": 2,
+                    "feedbackType": "",
+                    "createStartTime": createStartTime || "",
+                    "createEndTime": createEndTime || "",
+                    "finalActiveStartTime": "",
+                    "finalActiveEndTime": "",
+                    "recycleStartTime": "",
+                    "recycleEndTime": "",
+                    "userInfo": "",
+                    "isAudition": "",
+                    "isDeal": "",
+                    "currPage": 0,
+                    "pageSize": 1000
+                };
+                console.log('查询payload:', payload);
+                
+                let response = await fetch('https://www.talk915.com/users/adminSeaPool/querySeaPool', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': navigator.userAgent,
+                        'Referer': 'https://www.talk915.com/admin/publicPoolManage/customerManage/publicPool',
+                        'Origin': 'https://www.talk915.com',
+                        'Sec-Fetch-Dest': 'empty',
+                        'Sec-Fetch-Mode': 'cors',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'token': token
+                    },
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
+                });
+                
+                console.log('查询响应状态:', response.status);
+                let data = await response.json();
+                console.log('查询响应数据:', data);
+                
+                if (response.ok && data.resultCode === 0) {
+                    console.log('待分配用户数据查询成功，数据结构:', data);
+                    // 检查数据结构，可能API返回的数据结构与预期不同
+                    let userData = data.resultData || data.data || data.list || [];
+                    console.log('待分配用户数据:', userData);
+                    console.log('待分配用户数据量:', userData.length);
+                    // 渲染待分配用户列表
+                    renderUnallocatedList(userData);
+                } else {
+                    console.log('待分配用户数据查询失败:', data.resultMessage || '未知错误');
+                }
+            } catch (error) {
+                console.error('查询待分配用户数据失败:', error);
+            } finally {
+                isLocalRequesting = false;
+            }
+        }
+        
+        // 渲染待分配用户列表
+        function renderUnallocatedList(data) {
+            console.log('开始渲染待分配用户列表');
+            console.log('待分配用户数据:', data);
+            
+            // 1. 校验数据
+            if (!data || !Array.isArray(data)) {
+                console.error('无效的待分配用户数据:', data);
+                return;
+            }
+            
+            console.log('待分配用户数据量:', data.length);
+            
+            // 存储待分配用户数据，以便导出
+            window.unallocatedUserData = data;
+            
+            // 2. 定位DOM元素
+            const unallocatedTable = document.getElementById('unallocatedTable');
+            console.log('找到表格元素:', unallocatedTable);
+            
+            if (!unallocatedTable) {
+                console.error('找不到unallocatedTable元素');
+                return;
+            }
+            
+            const tbody = unallocatedTable.querySelector('tbody');
+            console.log('找到tbody元素:', tbody);
+            
+            if (!tbody) {
+                console.error('找不到tbody元素');
+                return;
+            }
+            
+            // 3. 清空表格
+            tbody.innerHTML = '';
+            
+            // 4. 渲染数据
+            data.forEach((item, index) => {
+                console.log('处理用户数据:', item);
+                
+                // 创建新行
+                const row = document.createElement('tr');
+                
+                // 创建序号单元格
+                const indexCell = document.createElement('td');
+                indexCell.textContent = index + 1;
+                row.appendChild(indexCell);
+                
+                // 创建用户ID单元格
+                const userIdCell = document.createElement('td');
+                // 校验userId字段
+                userIdCell.textContent = item.userId || item.user_id || '-';
+                row.appendChild(userIdCell);
+                
+                // 创建注册时间单元格
+                const createTimeCell = document.createElement('td');
+                // 校验createTime字段
+                createTimeCell.textContent = item.createTime || item.create_time || '-';
+                row.appendChild(createTimeCell);
+                
+                // 将行添加到表格中
+                tbody.appendChild(row);
+                console.log('添加行:', row);
+            });
+            
+            console.log('待分配用户列表渲染完成，最终行数:', tbody.children.length);
+            
+            // 5. 切换到待分配用户列表Tab
+            console.log('切换到待分配用户列表Tab');
+            const unallocatedTabButton = document.querySelector('[data-tab="unallocated"]');
+            if (unallocatedTabButton) {
+                unallocatedTabButton.click();
+            } else {
+                console.error('找不到待分配用户列表Tab按钮');
+            }
+        }
+        
         // 页面加载时初始化
         window.addEventListener('load', function() {
             // 更新当前时间
@@ -1877,11 +2045,14 @@
                     // 存储数据以便导出
                     window.seaPoolData = data.resultData;
                     
-                    // 更新公海池数据概览
-                    updateSeaPoolOverview();
-                    
                     // 更新已分配数据
                     document.getElementById('allocatedCount').textContent = data.totalCount || 0;
+                    
+                    // 先更新公海池数据概览
+                    await updateSeaPoolOverview();
+                    
+                    // 查询待分配用户数据
+                    await queryUnallocatedUsers();
                 } else {
                     statusMessage.innerHTML = ``;
                     resultStatus.innerHTML = `<div class="error-message">查询失败: ${data.resultMessage || '未知错误'}</div>`;
@@ -2412,6 +2583,36 @@
                     index: index + 1,
                     teachCourse: item.teachCourse,
                     count: item.count
+                });
+            });
+            
+            // 创建待分配用户列表sheet
+            const unallocatedSheet = workbook.addWorksheet('待分配用户列表');
+            unallocatedSheet.columns = [
+                { header: '序号', key: 'index', width: 10 },
+                { header: '用户ID', key: 'userId', width: 20 },
+                { header: '注册时间', key: 'createTime', width: 20 }
+            ];
+            
+            // 填充待分配用户列表数据
+            const unallocatedData = window.unallocatedUserData || [];
+            unallocatedData.forEach((item, index) => {
+                // 格式化日期
+                function formatDate(dateString) {
+                    if (!dateString) return '-';
+                    // 保留完整的日期和时间
+                    if (dateString.includes('T')) {
+                        // 将ISO格式转换为标准格式
+                        return dateString.replace('T', ' ');
+                    } else {
+                        return dateString;
+                    }
+                }
+                
+                unallocatedSheet.addRow({
+                    index: index + 1,
+                    userId: item.userId || item.user_id || '-',
+                    createTime: formatDate(item.createTime || item.create_time)
                 });
             });
             
