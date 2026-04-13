@@ -158,27 +158,6 @@
             text-align: right;
         }
         
-        /* 待跟进用户列表 */
-        #pendingFollowTable {
-            min-width: 500px;
-        }
-        
-        /* 待跟进用户列表列宽度 */
-        #pendingFollowTable th:nth-child(1),
-        #pendingFollowTable td:nth-child(1) {
-            min-width: 80px; /* 序号 */
-        }
-        
-        #pendingFollowTable th:nth-child(2),
-        #pendingFollowTable td:nth-child(2) {
-            min-width: 150px; /* 用户ID */
-        }
-        
-        #pendingFollowTable th:nth-child(3),
-        #pendingFollowTable td:nth-child(3) {
-            min-width: 180px; /* 注册时间 */
-        }
-        
         .data-table th,
         .data-table td {
             border: 1px solid #ddd;
@@ -558,7 +537,6 @@
                             <button class="sub-tab-button active" data-tab="staffSummary">顾问公海数据汇总</button>
                             <button class="sub-tab-button" data-tab="courseSummary">推荐码汇总</button>
                             <button class="sub-tab-button" data-tab="detail">明细表</button>
-                            <button class="sub-tab-button" data-tab="pendingFollow">待跟进用户列表</button>
                         </div>
                         
                         <!-- 顾问汇总表 -->
@@ -617,22 +595,6 @@
                                             <th>总课时</th>
                                             <th>剩余课时</th>
                                             <th>跟进记录</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <!-- 待跟进用户列表 -->
-                        <div id="pendingFollow" class="sub-tab-content">
-                            <div class="table-container">
-                                <table id="pendingFollowTable" class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>序号</th>
-                                            <th>用户ID</th>
-                                            <th>注册时间</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -949,9 +911,6 @@
 
         // 填充表格数据
         function populateTables(data) {
-            // 获取token
-            const token = localStorage.getItem('talk915_token');
-            
             // 1. 填充明细表
             const detailTable = document.getElementById('detailTable').querySelector('tbody');
             detailTable.innerHTML = '';
@@ -1186,6 +1145,7 @@
             });
             
             // 计算跟进时间差和未跟进用户数
+            const token = localStorage.getItem('talk915_token');
             if (token) {
                 // 并行查询所有用户的跟进记录
                 const followRecordPromises = data.map(async (item) => {
@@ -1374,69 +1334,6 @@
                 `;
                 courseSummaryTable.appendChild(row);
             });
-            
-            // 4. 填充待跟进用户列表
-            const pendingFollowTable = document.getElementById('pendingFollowTable').querySelector('tbody');
-            pendingFollowTable.innerHTML = '';
-            
-            // 筛选出待跟进用户（无跟进记录的用户）
-            const pendingFollowUsers = [];
-            
-            // 并行查询所有用户的跟进记录，筛选出无跟进记录的用户
-            if (token) {
-                // 并行查询所有用户的跟进记录
-                const followRecordPromises = data.map(async (item) => {
-                    try {
-                        const response = await fetch('https://www.talk915.com/users/adminSeaPool/querySeaPoolFollowRecord', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json;charset=UTF-8',
-                                'Accept': 'application/json, text/plain, */*',
-                                'User-Agent': navigator.userAgent,
-                                'Referer': 'https://www.talk915.com/admin/publicPoolManage/customerManage/followUpList',
-                                'Origin': 'https://www.talk915.com',
-                                'Sec-Fetch-Dest': 'empty',
-                                'Sec-Fetch-Mode': 'cors',
-                                'Sec-Fetch-Site': 'same-origin',
-                                'token': token
-                            },
-                            body: JSON.stringify({
-                                "userId": parseInt(item.userId),
-                                "currPage": 0,
-                                "pageSize": 100
-                            }),
-                            credentials: 'include'
-                        });
-                        
-                        const followData = await response.json();
-                        if (!(response.ok && followData.resultCode === 0 && followData.resultData && followData.resultData.length > 0)) {
-                            // 无跟进记录，添加到待跟进列表
-                            pendingFollowUsers.push(item);
-                        }
-                    } catch (error) {
-                        console.error('查询跟进记录错误:', error);
-                        // 错误时视为无跟进记录
-                        pendingFollowUsers.push(item);
-                    }
-                });
-                
-                // 等待所有查询完成后更新表格
-                Promise.all(followRecordPromises).then(() => {
-                    // 按注册时间排序
-                    pendingFollowUsers.sort((a, b) => new Date(a.createTime) - new Date(b.createTime));
-                    
-                    // 填充待跟进用户列表
-                    pendingFollowUsers.forEach((item, index) => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${index + 1}</td>
-                            <td>${item.userId || '-'}</td>
-                            <td>${formatDate(item.createTime)}</td>
-                        `;
-                        pendingFollowTable.appendChild(row);
-                    });
-                });
-            }
         }
 
         // 主Tab切换功能
@@ -2353,6 +2250,7 @@
             });
             
             // 计算跟进时间差和未跟进用户数
+            const token = localStorage.getItem('talk915_token');
             if (token) {
                 // 并行查询所有用户的跟进记录
                 const followRecordPromises = data.map(async (item) => {
