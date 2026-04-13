@@ -949,6 +949,9 @@
 
         // 填充表格数据
         function populateTables(data) {
+            // 获取token
+            const token = localStorage.getItem('talk915_token');
+            
             // 1. 填充明细表
             const detailTable = document.getElementById('detailTable').querySelector('tbody');
             detailTable.innerHTML = '';
@@ -1183,7 +1186,6 @@
             });
             
             // 计算跟进时间差和未跟进用户数
-            const token = localStorage.getItem('talk915_token');
             if (token) {
                 // 并行查询所有用户的跟进记录
                 const followRecordPromises = data.map(async (item) => {
@@ -2351,7 +2353,6 @@
             });
             
             // 计算跟进时间差和未跟进用户数
-            const token = localStorage.getItem('talk915_token');
             if (token) {
                 // 并行查询所有用户的跟进记录
                 const followRecordPromises = data.map(async (item) => {
