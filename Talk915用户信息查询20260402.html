@@ -7984,7 +7984,7 @@ function exportRegisteredUsers() {
                 });
 
                 // 添加新增的统计列
-                const newColumns = ['总获客数', '最早注册用户', '最晚注册用户', '上过课', '购买过套餐'];
+                const newColumns = ['总获客数', '最早注册用户', '最晚注册用户', '上过课', '购买过套餐', '购买过30课时以上套餐'];
                 newColumns.forEach(column => {
                     tableHTML += `<th style="padding: 8px; border: 1px solid #ddd; text-align: left; background-color: #f8f9fa; font-weight: bold; position: sticky; top: 0;">${column}</th>`;
                 });
@@ -8175,69 +8175,98 @@ function exportRegisteredUsers() {
                     throw new Error('请先登录获取token');
                 }
 
-                // 第一次查询，获取总数
-                let payload = {
-                    "accountName": "",
-                    "user": "",
-                    "date1": startDate,
-                    "date2": endDate,
-                    "majoy": referrerId,
-                    "accountType": "-1",
-                    "isFreeClass": "0",
-                    "isPay": "0",
-                    "source": "-1",
-                    "isStuCategory": "0",
-                    "lid": "",
-                    "cooperativeUser": 1,
-                    "classesTool": "-1",
-                    "accountStatus": "0",
-                    "currPage": 0,
-                    "pageSize": 1000
-                };
+                // 构建基础payload
+                function buildPayload(isPay, isFreeClass) {
+                    return {
+                        "accountName": "",
+                        "user": "",
+                        "date1": startDate,
+                        "date2": endDate,
+                        "majoy": referrerId,
+                        "accountType": "-1",
+                        "isFreeClass": isFreeClass,
+                        "isPay": isPay,
+                        "source": "-1",
+                        "isStuCategory": "0",
+                        "lid": "",
+                        "cooperativeUser": 1,
+                        "classesTool": "-1",
+                        "accountStatus": "0",
+                        "currPage": 0,
+                        "pageSize": 10
+                    };
+                }
 
+                // 1. 查询总获客数 (isPay=0)
+                let totalCount = 0;
                 let response = await fetchWithRetry(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'token': token
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(buildPayload("0", "0"))
                 });
-
                 let data = await response.json();
-                let totalCount = data.totalCount || 0;
-                let userRecords = data.resultData || [];
+                totalCount = data.totalCount || 0;
 
-                // 如果总数大于1000，重新查询
-                if (totalCount > 1000) {
-                    payload.pageSize = totalCount;
-                    response = await fetchWithRetry(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'token': token
-                        },
-                        body: JSON.stringify(payload)
-                    });
-                    data = await response.json();
-                    userRecords = data.resultData || [];
-                }
+                // 2. 查询购买过套餐的用户数 (isPay=1)
+                let hasPackage = 0;
+                response = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'token': token
+                    },
+                    body: JSON.stringify(buildPayload("1", "0"))
+                });
+                data = await response.json();
+                hasPackage = data.totalCount || 0;
 
-                // 统计数据
+                // 3. 查询购买过30课时以上套餐的用户数 (isPay=3)
+                let has30ClassPackage = 0;
+                response = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'token': token
+                    },
+                    body: JSON.stringify(buildPayload("3", "0"))
+                });
+                data = await response.json();
+                has30ClassPackage = data.totalCount || 0;
+
+                // 4. 查询上过课的用户数 (isFreeClass=1, isPay=0)
+                let hasCourse = 0;
+                response = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'token': token
+                    },
+                    body: JSON.stringify(buildPayload("0", "1"))
+                });
+                data = await response.json();
+                hasCourse = data.totalCount || 0;
+
+                // 5. 查询最早和最晚注册用户
                 let earliestUser = null;
                 let latestUser = null;
-                let hasCourse = 0;
-                let hasPackage = 0;
-
+                response = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'token': token
+                    },
+                    body: JSON.stringify({
+                        ...buildPayload("0", "0"),
+                        "pageSize": 1000
+                    })
+                });
+                data = await response.json();
+                const userRecords = data.resultData || [];
+                
                 userRecords.forEach(user => {
-                    // 统计上过课和购买过套餐的用户
-                    if (user.teacherType === "1") {
-                        hasCourse++;
-                    }
-                    if (user.teacherArea === "1") {
-                        hasPackage++;
-                    }
-
                     // 找出最早和最晚注册的用户
                     const createTime = user.createTime;
                     if (!earliestUser || createTime < earliestUser.createTime) {
@@ -8253,7 +8282,8 @@ function exportRegisteredUsers() {
                     最早注册用户: earliestUser ? earliestUser.createTime : '',
                     最晚注册用户: latestUser ? latestUser.createTime : '',
                     上过课: hasCourse,
-                    购买过套餐: hasPackage
+                    购买过套餐: hasPackage,
+                    购买过30课时以上套餐: has30ClassPackage
                 };
 
                 // 缓存结果
@@ -8276,6 +8306,7 @@ function exportRegisteredUsers() {
                     cells[startIndex + 2].textContent = result.最晚注册用户 || '';
                     cells[startIndex + 3].textContent = result.上过课 || 0;
                     cells[startIndex + 4].textContent = result.购买过套餐 || 0;
+                    cells[startIndex + 5].textContent = result.购买过30课时以上套餐 || 0;
                 }
             }
 
@@ -8298,6 +8329,7 @@ function exportRegisteredUsers() {
                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left; background-color: #f8f9fa; font-weight: bold;">最晚注册用户</th>
                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left; background-color: #f8f9fa; font-weight: bold;">上过课</th>
                                 <th style="padding: 8px; border: 1px solid #ddd; text-align: left; background-color: #f8f9fa; font-weight: bold;">购买过套餐</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left; background-color: #f8f9fa; font-weight: bold;">购买过30课时以上套餐</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -8312,6 +8344,7 @@ function exportRegisteredUsers() {
                             <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">${result.最晚注册用户 || ''}</td>
                             <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">${result.上过课 || 0}</td>
                             <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">${result.购买过套餐 || 0}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">${result.购买过30课时以上套餐 || 0}</td>
                         </tr>
                     `;
                 });
