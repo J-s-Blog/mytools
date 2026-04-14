@@ -1119,27 +1119,31 @@
         <!-- 用户注册时间和套餐查询 Tab -->
         <div id="userRegPackageTab" class="tab-content" style="display: none;">
             <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
-                <!-- 三个区域并列布局 -->
-                <div style="display: flex; margin-bottom: 15px; align-items: flex-end;">
+                <!-- 重新排列的布局 -->
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
                     <!-- 文本文件导入区域 -->
-                    <div style="flex: 1; padding: 0 15px; display: flex; flex-direction: column;">
+                    <div style="flex: 1; min-width: 200px;">
                         <h2 style="color: #333; margin-bottom: 10px; font-size: 16px;">文件导入</h2>
                         <div class="form-group" style="margin-bottom: 10px;">
-                            <label for="userRegPackageFileInput">选择文件:</label>
+                            <label for="userRegPackageFileInput" style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">选择文件:</label>
                             <input type="file" id="userRegPackageFileInput" accept=".txt,.csv,.xlsx,.xls" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-top: 3px;">
                             <div class="info-text" style="margin-top: 2px; font-size: 11px;">支持 .txt、.csv 和 Excel 文件格式</div>
                         </div>
                         <button id="userRegPackageImportBtn" style="width: 100%; padding: 8px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">导入并显示表格</button>
                     </div>
                     
-                    <!-- 分隔线 -->
-                    <div style="width: 1px; background-color: #ddd; margin: 0 5px;"></div>
+                    <!-- 排除关键字区域 -->
+                    <div style="flex: 1; min-width: 200px;">
+                        <h2 style="color: #333; margin-bottom: 10px; font-size: 16px;">排除关键字（每行一个）:</h2>
+                        <textarea id="excludeKeywords" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 13px; height: 80px; resize: vertical;"></textarea>
+                        <div class="info-text" style="margin-top: 2px; font-size: 11px;">默认会排除包含"公开课"的套餐，每行输入一个关键字</div>
+                    </div>
                     
-                    <!-- 选择查询条件列区域 -->
-                    <div style="flex: 1; padding: 0 15px; display: flex; flex-direction: column;">
+                    <!-- 查询条件区域 -->
+                    <div style="flex: 1; min-width: 200px;">
                         <h2 style="color: #333; margin-bottom: 10px; font-size: 16px;">查询条件</h2>
                         <div class="form-group" style="margin-bottom: 10px;">
-                            <label for="userRegPackageColumnSelect">选择查询条件列:</label>
+                            <label for="userRegPackageColumnSelect" style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">选择查询条件列:</label>
                             <select id="userRegPackageColumnSelect" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-top: 3px;">
                                 <option value="">请先导入数据</option>
                             </select>
@@ -1164,14 +1168,11 @@
                         </div>
                     </div>
                     
-                    <!-- 分隔线 -->
-                    <div style="width: 1px; background-color: #ddd; margin: 0 5px;"></div>
-                    
                     <!-- 手动输入ID查询区域 -->
-                    <div style="flex: 1; padding: 0 15px; display: flex; flex-direction: column;">
+                    <div style="flex: 1; min-width: 200px;">
                         <h2 style="color: #333; margin-bottom: 10px; font-size: 16px;">手动输入ID查询</h2>
                         <div class="form-group" style="margin-bottom: 10px;">
-                            <label for="userRegPackageManualIdInput">输入用户ID或手机号:</label>
+                            <label for="userRegPackageManualIdInput" style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">输入用户ID或手机号:</label>
                             <input type="text" id="userRegPackageManualIdInput" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-top: 3px;">
                             <div class="info-text" style="margin-top: 2px; font-size: 11px;">多个ID请用逗号分隔</div>
                         </div>
@@ -9893,16 +9894,29 @@ function exportRegisteredUsers() {
                               }).then(response => response.json())
                                 .then(packageData => {
                                     if (packageData.resultCode === 0 && packageData.resultData) {
+                                        // 获取排除关键字列表
+                                        const excludeKeywords = document.getElementById('excludeKeywords')?.value.split('\n').filter(keyword => keyword.trim() !== '') || [];
+                                        excludeKeywords.push('公开课'); // 默认排除包含"公开课"的套餐
+                                        
                                         packageData.resultData.forEach(pkg => {
-                                            totalBalance += pkg.balance || 0;
-                                            totalInitialPoint += pkg.initialPoint || 0;
+                                            // 检查套餐名是否包含任何排除关键字
+                                            const shouldExclude = excludeKeywords.some(keyword => pkg.productName.includes(keyword));
+                                            
+                                            if (!shouldExclude) {
+                                                totalBalance += pkg.balance || 0;
+                                                totalInitialPoint += pkg.initialPoint || 0;
+                                            }
+                                            
                                             let pkgCreateTime = '';
                                             if (pkg.createTime) {
                                                 // 处理时区问题，确保日期显示正确
                                                 const date = new Date(pkg.createTime);
                                                 pkgCreateTime = date.toISOString().split('T')[0];
                                             }
-                                            packageList.push(`${pkgCreateTime}-${pkg.productName} ${pkg.initialPoint || 0}/${pkg.balance || 0}`);
+                                            
+                                            // 标记排除的套餐
+                                            const excludeMark = shouldExclude ? ' [排除]' : '';
+                                            packageList.push(`${pkgCreateTime}-${pkg.productName}${excludeMark} ${pkg.initialPoint || 0}/${pkg.balance || 0}`);
                                         });
                                     }
                                     
