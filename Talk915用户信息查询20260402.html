@@ -507,6 +507,14 @@
                                 <option value="2">否</option>
                             </select>
                         </div>
+                        <div>
+                            <label for="accountStatus">账号状态:</label>
+                            <select id="accountStatus" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                                <option value="" selected>全部</option>
+                                <option value="0">正常</option>
+                                <option value="1">屏蔽</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2797,6 +2805,10 @@
             const cooperativeUser = document.getElementById('cooperativeUser').value;
             const isPay = document.getElementById('isPay').value;
             const isFreeClass = document.getElementById('isFreeClass').value;
+            const accountStatus = document.getElementById('accountStatus').value;
+            
+            // 存储当前查询的账号状态，用于后续显示
+            window.currentAccountStatus = accountStatus;
             
             // 验证日期
             if (!startDate || !endDate) {
@@ -2832,7 +2844,20 @@
                     const date = dateList[i];
                     // 更新进度显示
                     document.getElementById('queryProgress').textContent = `正在查询 ${date} 的数据... (${i + 1}/${dateList.length})`;
-                    await queryRegisteredUsersByDate(date, cooperativeUser, isPay, isFreeClass);
+                    if (accountStatus === '') {
+                        // 调试：打印查询全部账号状态的信息
+                        console.log('查询全部账号状态');
+                        console.log('查询正常状态用户');
+                        // 查询全部账号状态，分别查询正常和屏蔽状态
+                        await queryRegisteredUsersByDate(date, cooperativeUser, isPay, isFreeClass, '0');
+                        console.log('查询屏蔽状态用户');
+                        await queryRegisteredUsersByDate(date, cooperativeUser, isPay, isFreeClass, '1');
+                    } else {
+                        // 调试：打印查询指定账号状态的信息
+                        console.log(`查询账号状态为 ${accountStatus} 的用户`);
+                        // 查询指定账号状态
+                        await queryRegisteredUsersByDate(date, cooperativeUser, isPay, isFreeClass, accountStatus);
+                    }
                 }
                 
                 // 检查是否需要查询推荐人信息
@@ -2879,7 +2904,7 @@
         }
         
         // 按天查询注册用户
-        async function queryRegisteredUsersByDate(date, cooperativeUser, isPay, isFreeClass) {
+        async function queryRegisteredUsersByDate(date, cooperativeUser, isPay, isFreeClass, accountStatus) {
             // 构建请求payload
             const payload = {
                 "accountName": "",
@@ -2887,7 +2912,7 @@
                 "date1": date,
                 "date2": date,
                 "majoy": "",
-                "accountType": "0",
+                "accountType": accountStatus === '1' ? "-1" : "0",
                 "isFreeClass": isFreeClass,
                 "isPay": isPay,
                 "source": "-1",
@@ -2895,7 +2920,7 @@
                 "lid": "",
                 "cooperativeUser": cooperativeUser || 1,
                 "classesTool": "-1",
-                "accountStatus": "0",
+                "accountStatus": accountStatus,
                 "currPage": 0,
                 "pageSize": 3000
             };
@@ -2921,7 +2946,14 @@
             // 解析响应数据
             const data = await response.json();
             
+            // 调试：打印响应数据
+            console.log('API响应数据:', data);
+            
             if (data.resultCode === 0) {
+                // 调试：打印查询参数和返回的用户数量
+                console.log(`查询参数 - date: ${date}, accountStatus: ${accountStatus}`);
+                console.log(`返回用户数量: ${data.resultData ? data.resultData.length : 0}`);
+                
                 // 检查totalCount是否大于3000
                 if (data.totalCount > 3000) {
                     // 重新查询，设置pageSize为totalCount
@@ -2945,27 +2977,38 @@
                     
                     const data2 = await response2.json();
                     if (data2.resultCode === 0) {
+                        // 调试：打印第二次查询的用户数量
+                        console.log(`第二次查询返回用户数量: ${data2.resultData ? data2.resultData.length : 0}`);
                         // 保存用户信息
-                        saveRegisteredUserInfo(data2.resultData);
+                        saveRegisteredUserInfo(data2.resultData, accountStatus);
                     }
                 } else {
                     // 保存用户信息
-                    saveRegisteredUserInfo(data.resultData);
+                    saveRegisteredUserInfo(data.resultData, accountStatus);
                 }
             }
         }
         
         // 保存注册用户信息
-        function saveRegisteredUserInfo(userData) {
+        function saveRegisteredUserInfo(userData, queryAccountStatus) {
             if (!userData || userData.length === 0) return;
+            
+            console.log('保存用户信息，用户数量:', userData.length);
+            console.log('查询的账号状态:', queryAccountStatus);
             
             for (const user of userData) {
                 if (user.userId) {
+                    // 调试：打印用户数据，检查accountStatus字段
+                    console.log('User data keys:', Object.keys(user));
+                    console.log('User data:', user);
+                    console.log('Account status:', user.accountStatus);
+                    
                     registeredUsers.push({
                         userId: user.userId,
                         userName: user.userName || '',
                         createTime: user.createTime || '',
                         registerFrom: user.registerFrom || '',
+                        accountStatus: queryAccountStatus,
                         referrerId: '',
                         referrerName: '',
                         referrerTalkId: '',
@@ -3047,7 +3090,7 @@
             const headerRow = thead.insertRow();
             
             // 添加基本列表头
-            const headers = ['序号', '用户ID', '用户名', '注册时间', '注册来源'];
+            const headers = ['序号', '用户ID', '用户名', '账号状态', '注册时间', '注册来源'];
             if (shouldShowReferrer) {
                 headers.push('推荐人编号', '推荐人名称', '推荐人Talk_id', '推荐人类型', '推荐人备注');
             }
@@ -3066,7 +3109,7 @@
             if (registeredUsers.length === 0) {
                 const row = tableBody.insertRow();
                 const cell = row.insertCell(0);
-                cell.colSpan = shouldShowReferrer ? 9 : 5;
+                cell.colSpan = shouldShowReferrer ? 10 : 6;
                 cell.textContent = '没有找到注册用户数据';
                 cell.style.textAlign = 'center';
                 cell.style.padding = '20px';
@@ -3094,44 +3137,50 @@
                 cell2.textContent = user.userName;
                 cell2.style.border = '1px solid #ddd';
                 cell2.style.padding = '10px';
-                // 注册时间
+                // 账号状态
                 const cell3 = row.insertCell(3);
-                cell3.textContent = user.createTime;
+                // 直接根据查询的账号状态显示
+                cell3.textContent = user.accountStatus === '1' ? '屏蔽' : '正常';
                 cell3.style.border = '1px solid #ddd';
                 cell3.style.padding = '10px';
-                // 注册来源
+                // 注册时间
                 const cell4 = row.insertCell(4);
-                cell4.textContent = user.registerFrom;
+                cell4.textContent = user.createTime;
                 cell4.style.border = '1px solid #ddd';
                 cell4.style.padding = '10px';
+                // 注册来源
+                const cell5 = row.insertCell(5);
+                cell5.textContent = user.registerFrom;
+                cell5.style.border = '1px solid #ddd';
+                cell5.style.padding = '10px';
                 
                 // 推荐人相关列
                 if (shouldShowReferrer) {
                     // 推荐人编号
-                    const cell5 = row.insertCell(5);
-                    cell5.textContent = user.referrerId || '';
-                    cell5.style.border = '1px solid #ddd';
-                    cell5.style.padding = '10px';
-                    // 推荐人名称
                     const cell6 = row.insertCell(6);
-                    cell6.textContent = user.referrerName || '';
+                    cell6.textContent = user.referrerId || '';
                     cell6.style.border = '1px solid #ddd';
                     cell6.style.padding = '10px';
-                    // 推荐人Talk_id
+                    // 推荐人名称
                     const cell7 = row.insertCell(7);
-                    cell7.textContent = user.referrerTalkId || '';
+                    cell7.textContent = user.referrerName || '';
                     cell7.style.border = '1px solid #ddd';
                     cell7.style.padding = '10px';
-                    // 推荐人类型
+                    // 推荐人Talk_id
                     const cell8 = row.insertCell(8);
-                    cell8.textContent = user.referrerType || '';
+                    cell8.textContent = user.referrerTalkId || '';
                     cell8.style.border = '1px solid #ddd';
                     cell8.style.padding = '10px';
-                    // 推荐人备注
+                    // 推荐人类型
                     const cell9 = row.insertCell(9);
-                    cell9.textContent = user.referrerRemark || '';
+                    cell9.textContent = user.referrerType || '';
                     cell9.style.border = '1px solid #ddd';
                     cell9.style.padding = '10px';
+                    // 推荐人备注
+                    const cell10 = row.insertCell(10);
+                    cell10.textContent = user.referrerRemark || '';
+                    cell10.style.border = '1px solid #ddd';
+                    cell10.style.padding = '10px';
                 }
             }
         }
@@ -3148,14 +3197,15 @@ function exportRegisteredUsers() {
     const shouldExportReferrer = queryReferrerToggle.checked;
     
     // 构建CSV内容
-    let csvContent = '用户ID,用户名,注册时间,注册来源';
+    let csvContent = '用户ID,用户名,账号状态,注册时间,注册来源';
     if (shouldExportReferrer) {
         csvContent += ',推荐人编号,推荐人名称,推荐人Talk_id,推荐人类型,推荐人备注';
     }
     csvContent += '\n';
     
     for (const user of registeredUsers) {
-        let row = `${user.userId},${user.userName},${user.createTime},${user.registerFrom}`;
+        const accountStatusText = user.accountStatus === '1' ? '屏蔽' : '正常';
+        let row = `${user.userId},${user.userName},${accountStatusText},${user.createTime},${user.registerFrom}`;
         if (shouldExportReferrer) {
             row += `,${user.referrerId},${user.referrerName},${user.referrerTalkId},${user.referrerType},${user.referrerRemark}`;
         }
