@@ -492,6 +492,23 @@
                 <button type="submit" id="loginBtn">登录</button>
             </form>
             
+            <!-- 手工保存Token功能 -->
+            <div style="margin-top: 20px; padding: 15px; border-top: 1px solid #ddd;">
+                <h3>手工保存Token</h3>
+                <form id="saveTokenForm">
+                    <div class="form-group">
+                        <label for="manualToken">Token:</label>
+                        <input type="text" id="manualToken" name="manualToken" value="" required placeholder="请输入Token">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualLoginId">用户名 (可选):</label>
+                        <input type="text" id="manualLoginId" name="manualLoginId" value="" placeholder="可选，用于标识">
+                    </div>
+                    <button type="submit" id="saveTokenBtn">保存Token</button>
+                </form>
+                <div id="saveTokenStatusMessage" style="margin-top: 15px;"></div>
+            </div>
+            
             <!-- 状态信息显示区域 -->
             <div id="loginStatusMessage" style="margin-top: 15px;"></div>
 
@@ -2066,6 +2083,63 @@
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.textContent = '登录';
+            }
+        });
+
+        // 手工保存Token功能
+        document.getElementById('saveTokenForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const saveTokenBtn = document.getElementById('saveTokenBtn');
+            const statusMessage = document.getElementById('saveTokenStatusMessage');
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const userIdDisplay = document.getElementById('userIdDisplay');
+            const resultSection = document.getElementById('resultSection');
+            const resultMessage = document.getElementById('resultMessage');
+
+            const manualToken = document.getElementById('manualToken').value;
+            const manualLoginId = document.getElementById('manualLoginId').value;
+
+            // 重置状态
+            statusMessage.innerHTML = '';
+
+            if (!manualToken) {
+                statusMessage.innerHTML = '<div class="error-message">请填写Token</div>';
+                return;
+            }
+
+            saveTokenBtn.disabled = true;
+            saveTokenBtn.textContent = '保存中...';
+
+            try {
+                // 保存登录信息到localStorage
+                localStorage.setItem('talk915_login_data', JSON.stringify({
+                    loginId: manualLoginId || '手工保存',
+                    loginTime: new Date().toISOString(),
+                    token: manualToken,
+                    userId: '手工保存',
+                    response: {}
+                }));
+                console.log('登录信息保存到localStorage成功');
+
+                // 存储关键信息到单独的localStorage项
+                localStorage.setItem('talk915_token', manualToken);
+                localStorage.setItem('talk915_userId', '手工保存');
+                localStorage.setItem('talk915_userName', manualLoginId || '手工保存');
+                console.log('token单独保存成功');
+
+                // 显示结果
+                resultMessage.innerHTML = '<div class="success-message">Token保存成功！</div>';
+                tokenDisplay.textContent = manualToken;
+                userIdDisplay.textContent = '手工保存';
+                resultSection.style.display = 'block';
+
+                statusMessage.innerHTML = '<div class="success-message">Token保存成功！</div>';
+            } catch (error) {
+                console.error('保存Token失败:', error);
+                statusMessage.innerHTML = '<div class="error-message">保存Token失败</div>';
+            } finally {
+                saveTokenBtn.disabled = false;
+                saveTokenBtn.textContent = '保存Token';
             }
         });
 
@@ -9520,23 +9594,6 @@
                         }
                     }
                     
-                    // 特别处理学生试听转化计算和老师试听转化计算的情况
-                    if (moduleType === 'trial-calc' || moduleType === 'teacher-calc') {
-                        // 检查计算按钮是否已恢复原始文本
-                        // 对于学生试听转化计算，原始文本是"计算试听转化"
-                        // 对于老师试听转化计算，不能仅检查"开始计算"，因为这是初始状态
-                        if (moduleType === 'trial-calc' && queryBtn && queryBtn.textContent === '计算试听转化') {
-                            isStatusComplete = true;
-                        } else if (moduleType === 'teacher-calc') {
-                            // 对于老师试听转化计算，需要更严格的检查
-                            // 只有当状态消息显示完成，或者结果区域显示时，才认为计算完成
-                            // 不能仅检查按钮文本，因为初始状态就是"开始计算"
-                            if (isStatusComplete || isResultSectionVisible) {
-                                isStatusComplete = true;
-                            }
-                        }
-                    }
-                    
                     // 检查是否有错误消息（如果有错误也应该继续执行）
                     let hasError = false;
                     if (statusMessage) {
@@ -9544,9 +9601,8 @@
                         hasError = errorMessages.length > 0;
                     }
                     
-                    // 综合判断：(按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)) 或 有错误 或 (计算相关模块的按钮文本已恢复)
-                    if ((isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) || hasError || 
-                        (moduleType === 'trial-calc' && queryBtn && queryBtn.textContent === '计算试听转化')) {
+                    // 综合判断：(按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)) 或 有错误
+                    if ((isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) || hasError) {
                         addTaskLog(`${moduleType}查询完成`);
                         
                         // 收集结果数据
