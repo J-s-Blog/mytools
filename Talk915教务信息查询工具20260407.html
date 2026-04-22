@@ -7664,8 +7664,17 @@
                     }
                 }
                 
+                // 启用导出按钮
+                const exportBtn = document.getElementById('exportCalcBtn');
+                if (exportBtn) {
+                    exportBtn.disabled = false;
+                    console.log('导出按钮已启用');
+                }
+                
                 calcResultSection.style.display = 'block';
                 statusMessage.innerHTML = '<div class="success-message">计算完成</div>';
+                console.log('学生试听转化计算完成，准备切换到下一步');
+
             } catch (error) {
                 console.error('计算错误:', error);
                 statusMessage.innerHTML = `<div class="error-message">计算失败: ${error.message}</div>`;
@@ -8015,8 +8024,17 @@
                     }
                 }
                 
+                // 启用导出按钮
+                const exportBtn = document.getElementById('exportTeacherCalcBtn');
+                if (exportBtn) {
+                    exportBtn.disabled = false;
+                    console.log('导出按钮已启用');
+                }
+                
                 calcResultSection.style.display = 'block';
                 statusMessage.innerHTML = '<div class="success-message">计算完成</div>';
+                console.log('老师试听转化计算完成');
+
             } catch (error) {
                 console.error('计算错误:', error);
                 statusMessage.innerHTML = `<div class="error-message">计算失败: ${error.message}</div>`;
@@ -8349,9 +8367,12 @@
             // 检查是否有保存的文件内容
             const agentFileInput = document.getElementById('agentListFile');
             const teacherFileInput = document.getElementById('teacherListFile');
+            const packageFileInput = document.getElementById('packageListFile');
             
             const hasSavedAgentList = agentFileInput.dataset.hasSavedContent === 'true' || agentFileInput.value !== '';
             const hasSavedTeacherList = teacherFileInput.dataset.hasSavedContent === 'true' || teacherFileInput.value !== '';
+            const hasSavedPackageList = packageFileInput && (packageFileInput.dataset.hasSavedContent === 'true' || packageFileInput.value !== '');
+
             
             // 老师名单查询：必须指定导入代理清单文件
             if (selectedModules.includes('teacher-list')) {
@@ -8493,14 +8514,8 @@
                     errors.push('试听转化相关模块：必须指定查询起止日期');
                 }
                 
-                // 检查正价套餐清单文件
-                const packageListFileInput = document.getElementById('packageListFile');
-                if (!packageListFileInput.files || packageListFileInput.files.length === 0) {
-                    // 如果没有选择新文件，但有保存的文件内容，则不报错
-                    if (!hasSavedPackageList) {
-                        errors.push('试听转化相关模块：必须指定导入正价套餐清单文件');
-                    }
-                }
+                // 不再需要检查正价套餐清单文件
+                // 试听转化计算现在不需要导入文件即可执行
             }
             
             return errors;
@@ -9610,10 +9625,8 @@
         async function waitForQueryAndExport(moduleType, exportBtnId, taskName, queryBtn) {
             addTaskLog(`等待${moduleType}查询完成...`);
             
-            // 等待查询完成（根据模块类型设置不同的最大等待时间）
-            // 试听转化相关模块数据量大，设置更长的等待时间
-            const isTrialRelated = ['trial', 'trial-calc', 'teacher-calc'].includes(moduleType);
-            const maxWaitTime = isTrialRelated ? 30 * 60 * 1000 : 10 * 60 * 1000; // 试听转化30分钟，其他10分钟
+            // 等待查询完成，不设置最大等待时间
+            // 对于计算量大的任务，需要一直等待直到完成
             const checkInterval = 3000; // 每3秒检查一次，减少性能消耗
             let waitedTime = 0;
             let worker = null;
@@ -9660,6 +9673,27 @@
                         isResultSectionVisible = resultSection && resultSection.style.display === 'block';
                     }
                     
+                    // 检查计算统计结果是否显示（针对学生试听转化计算）
+                    let isCalcStatsVisible = false;
+                    if (moduleType === 'trial-calc') {
+                        const calcStats = document.getElementById('calcQueryStats');
+                        if (calcStats) {
+                            isCalcStatsVisible = calcStats.textContent.trim() !== '';
+                            console.log('检测到calcQueryStats元素，内容长度:', calcStats.textContent.trim().length);
+                            console.log('calcQueryStats内容:', calcStats.textContent.trim());
+                        } else {
+                            console.log('未找到calcQueryStats元素');
+                        }
+                    } else if (moduleType === 'teacher-calc') {
+                        const teacherCalcStats = document.getElementById('teacherCalcQueryStats');
+                        if (teacherCalcStats) {
+                            isCalcStatsVisible = teacherCalcStats.textContent.trim() !== '';
+                            console.log('检测到teacherCalcQueryStats元素，内容长度:', teacherCalcStats.textContent.trim().length);
+                        } else {
+                            console.log('未找到teacherCalcQueryStats元素');
+                        }
+                    }
+                    
                     // 检查状态消息是否显示完成
                     let isStatusComplete = false;
                     const statusMessage = document.getElementById(moduleType === 'trial' ? 'trialStatusMessage' : 
@@ -9688,8 +9722,55 @@
                         hasError = errorMessages.length > 0;
                     }
                     
-                    // 综合判断：(按钮可用 + (导出按钮可用 或 结果区域可见 或 状态显示完成)) 或 有错误
-                    if ((isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isStatusComplete)) || hasError) {
+                    // 综合判断：对于不同模块采用不同的判断逻辑
+                    // 对于试听转化查询(trial)，只要导出按钮可用且结果区域显示，就认为查询完成
+                    // 对于学生试听转化计算(trial-calc)，特别检查calcResultMessage元素是否显示计算完成
+                    let isTrialCalcComplete = false;
+                    if (moduleType === 'trial-calc') {
+                        const calcResultMessage = document.getElementById('calcResultMessage');
+                        if (calcResultMessage) {
+                            const successMessages = calcResultMessage.querySelectorAll('.success-message');
+                            for (const msg of successMessages) {
+                                if (msg.textContent.includes('计算完成')) {
+                                    isTrialCalcComplete = true;
+                                    console.log('检测到学生试听转化计算完成');
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 对于试听转化查询(trial)，需要明确的完成标志
+                    let isQueryComplete = false;
+                    if (moduleType === 'trial') {
+                        // 检查是否有明确的查询完成消息
+                        let hasCompleteMessage = false;
+                        if (statusMessage) {
+                            const successMessages = statusMessage.querySelectorAll('.success-message');
+                            for (const msg of successMessages) {
+                                if (msg.textContent.includes('查询完成') || msg.textContent.includes('查询成功')) {
+                                    hasCompleteMessage = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // 检查结果区域是否显示且包含具体的查询结果
+                        let hasVisibleResults = false;
+                        if (isResultSectionVisible) {
+                            const resultContent = document.getElementById('trialResultContent');
+                            hasVisibleResults = resultContent && resultContent.textContent.trim() !== '';
+                        }
+                        
+                        // 综合判断：需要有完成消息或可见的结果
+                        isQueryComplete = hasCompleteMessage || (isResultSectionVisible && hasVisibleResults);
+                        console.log('试听转化查询判断:', { hasCompleteMessage, isResultSectionVisible, hasVisibleResults, isQueryComplete });
+                    } else {
+                        // 其他模块：需要按钮可用且满足其他条件
+                        isQueryComplete = isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isCalcStatsVisible || isStatusComplete || isTrialCalcComplete);
+                    }
+                    
+                    if (isQueryComplete || hasError) {
                         addTaskLog(`${moduleType}查询完成`);
                         
                         // 收集结果数据
@@ -9708,17 +9789,16 @@
                         isQueryBtnEnabled,
                         isExportBtnEnabled,
                         isResultSectionVisible,
+                        isCalcStatsVisible,
                         isStatusComplete,
                         hasError,
-                        waitedTime,
-                        maxWaitTime
+                        waitedTime
                     });
                     
-                    // 超时检查
-                    if (waitedTime >= maxWaitTime) {
-                        addTaskLog(`${moduleType}查询超时`);
-                        resolve();
-                        return;
+                    // 不进行超时检查，一直等待直到任务完成
+                    // 输出等待时间信息，方便调试
+                    if (waitedTime % 60000 === 0) { // 每分钟输出一次等待信息
+                        console.log(`已等待${moduleType}查询完成: ${Math.floor(waitedTime / 60000)}分钟`);
                     }
                     
                     // 使用requestAnimationFrame或setTimeout，根据文档可见性选择
