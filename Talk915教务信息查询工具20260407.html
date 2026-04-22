@@ -9740,8 +9740,9 @@
                         }
                     }
                     
-                    // 对于试听转化查询(trial)，需要明确的完成标志
+                    // 对于不同模块采用不同的判断逻辑
                     let isQueryComplete = false;
+                    
                     if (moduleType === 'trial') {
                         // 检查是否有明确的查询完成消息
                         let hasCompleteMessage = false;
@@ -9765,6 +9766,26 @@
                         // 综合判断：需要有完成消息或可见的结果
                         isQueryComplete = hasCompleteMessage || (isResultSectionVisible && hasVisibleResults);
                         console.log('试听转化查询判断:', { hasCompleteMessage, isResultSectionVisible, hasVisibleResults, isQueryComplete });
+                    } else if (moduleType === 'trial-calc') {
+                        // 对于学生试听转化计算，特殊处理：
+                        // 1. 检查是否有明确的计算完成消息
+                        let hasCompleteMessage = false;
+                        if (statusMessage) {
+                            const successMessages = statusMessage.querySelectorAll('.success-message');
+                            for (const msg of successMessages) {
+                                if (msg.textContent.includes('计算完成') || msg.textContent.includes('计算成功')) {
+                                    hasCompleteMessage = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // 2. 检查导出按钮是否可用
+                        // 3. 检查结果区域是否显示
+                        // 4. 检查计算统计是否可见
+                        // 5. 检查是否有计算完成的特殊标志
+                        isQueryComplete = hasCompleteMessage || isExportBtnEnabled || isResultSectionVisible || isCalcStatsVisible || isTrialCalcComplete;
+                        console.log('学生试听转化计算判断:', { hasCompleteMessage, isExportBtnEnabled, isResultSectionVisible, isCalcStatsVisible, isTrialCalcComplete, isQueryComplete });
                     } else {
                         // 其他模块：需要按钮可用且满足其他条件
                         isQueryComplete = isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isCalcStatsVisible || isStatusComplete || isTrialCalcComplete);
@@ -9801,62 +9822,16 @@
                         console.log(`已等待${moduleType}查询完成: ${Math.floor(waitedTime / 60000)}分钟`);
                     }
                     
-                    // 使用requestAnimationFrame或setTimeout，根据文档可见性选择
-                    if (document.hidden) {
-                        // 文档不可见时，使用Web Worker保持定时器速度
-                        if (!worker) {
-                            worker = new Worker(URL.createObjectURL(new Blob([`
-                                let intervalId;
-                                self.onmessage = function(e) {
-                                    if (e.data === 'start') {
-                                        intervalId = setInterval(() => {
-                                            self.postMessage('tick');
-                                        }, 2000);
-                                    } else if (e.data === 'stop') {
-                                        clearInterval(intervalId);
-                                    }
-                                };
-                            `], { type: 'application/javascript' })));
-                            
-                            worker.onmessage = function() {
-                                checkQueryStatus();
-                            };
-                            
-                            worker.postMessage('start');
-                        }
-                    } else {
-                        // 文档可见时，使用setTimeout
-                        if (worker) {
-                            worker.postMessage('stop');
-                            worker.terminate();
-                            worker = null;
-                        }
-                        setTimeout(checkQueryStatus, checkInterval);
-                    }
+                    // 简化实现，使用setTimeout，避免Web Worker相关的错误
+                    setTimeout(checkQueryStatus, checkInterval);
                 }
                 
                 // 开始检查
                 checkQueryStatus();
                 
-                // 监听文档可见性变化
-                const handleVisibilityChange = () => {
-                    if (!document.hidden && worker) {
-                        worker.postMessage('stop');
-                        worker.terminate();
-                        worker = null;
-                    }
-                };
-                
-                document.addEventListener('visibilitychange', handleVisibilityChange);
-                
                 // 清理函数
                 const cleanup = () => {
-                    document.removeEventListener('visibilitychange', handleVisibilityChange);
-                    if (worker) {
-                        worker.postMessage('stop');
-                        worker.terminate();
-                        worker = null;
-                    }
+                    // 不需要清理Web Worker，因为已经不再使用
                 };
                 
                 // 在Promise resolve时清理
