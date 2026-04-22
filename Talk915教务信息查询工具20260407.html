@@ -1129,20 +1129,7 @@
         <div id="trial-conversion-calc-tab" class="tab-content">
             <!-- 主容器 -->
             <div style="display: flex; margin-bottom: 10px;">
-                <!-- 正价套餐清单导入区域 (左边，宽度一半) -->
-                <div style="flex: 1; margin-right: 10px;">
-                    <div class="result-title">正价套餐清单:</div>
-                    <div style="margin-top: 5px; display: flex; align-items: center;">
-                        <button type="button" id="importPackageListBtn" style="flex: 1; margin-right: 10px;">导入正价套餐清单</button>
-                        <input type="file" id="packageListFileInput" accept=".txt" style="display: none;">
-                    </div>
-                    <div id="packageListStatusMessage" style="margin-top: 5px;"></div>
-                    <div style="margin-top: 5px;">
-                        <textarea id="packageListText" placeholder="导入的正价套餐清单将显示在这里" style="width: 100%; height: 80px; padding: 5px; border: 1px solid #ddd; font-size: 12px;"></textarea>
-                    </div>
-                </div>
-                
-                <!-- 计算控制区域 (右边) -->
+                <!-- 计算控制区域 -->
                 <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                     <div style="display: flex; flex-direction: column; height: 100%; justify-content: center;">
                         <button type="button" id="calculateConversionBtn" style="width: 100%; margin-bottom: 10px; padding: 10px;">计算试听转化</button>
@@ -1192,6 +1179,7 @@
                                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">缺勤数</th>
                                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">正价套餐</th>
                                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">转化状态</th>
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">用户类型</th>
                             </tr>
                         </thead>
                         <tbody id="calcDataTableBody">
@@ -1239,6 +1227,7 @@
                                 <th style="border: 1px solid #ddd; padding: 8px;">转化率</th>
                                 <th style="border: 1px solid #ddd; padding: 8px;">试听学员ID</th>
                                 <th style="border: 1px solid #ddd; padding: 8px;">转化学员ID</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">首次测评课老用户ID</th>
                             </tr>
                         </thead>
                         <tbody id="teacherCalcDataTableBody">
@@ -1851,13 +1840,88 @@
                 tabElement.classList.add('active');
             } else {
                 console.error(`未找到ID为 ${tabId} 的tab元素`);
+                return false;
             }
             
             // 激活选中的tab按钮
-            const tabButton = document.querySelector(`[data-tab="${tabId}"]`);
+            // 尝试通过多种方式查找tab按钮
+            let tabButton = null;
+            
+            // 方式1：通过data-tab属性查找
+            tabButton = document.querySelector(`[data-tab="${tabId}"]`);
+            
+            // 方式2：通过onclick属性查找
+            if (!tabButton) {
+                tabButtons.forEach(button => {
+                    if (button.getAttribute('onclick') && button.getAttribute('onclick').includes(`switchTab('${tabId}')`)) {
+                        tabButton = button;
+                    }
+                });
+            }
+            
+            // 方式3：通过按钮文本查找（最后尝试）
+            if (!tabButton) {
+                const tabNameMap = {
+                    'login-tab': '登录',
+                    'teacher-list-tab': '老师名单查询',
+                    'education-operate-tab': '教务运营统计查询',
+                    'vip-timetable-tab': '老师VIP上课查询',
+                    'vip-schedule-tab': '约课查询',
+                    'cancel-record-tab': '老师2小时取消记录查询',
+                    'agent-cost-tab': '代理成本核算',
+                    'trial-conversion-tab': '试听转化查询',
+                    'trial-conversion-calc-tab': '学生试听转化计算',
+                    'teacher-conversion-calc-tab': '老师试听转化计算',
+                    'schedule-query-tab': '约课记录查询',
+                    'vip-apply-tab': 'VIP课表申请查询',
+                    'scheduled-task-tab': '定时任务'
+                };
+                
+                const tabName = tabNameMap[tabId];
+                if (tabName) {
+                    tabButtons.forEach(button => {
+                        if (button.textContent.trim() === tabName) {
+                            tabButton = button;
+                        }
+                    });
+                }
+            }
+            
             if (tabButton) {
                 tabButton.classList.add('active');
+                return true;
+            } else {
+                console.error(`未找到对应的tab按钮 for ${tabId}`);
+                return false;
             }
+        }
+
+        // 带重试机制的tab切换函数
+        async function switchTabWithRetry(tabId, maxRetries = 5, retryDelay = 1000) {
+            let retries = 0;
+            
+            while (retries < maxRetries) {
+                console.log(`尝试切换到tab ${tabId} (尝试 ${retries + 1}/${maxRetries})`);
+                const success = switchTab(tabId);
+                
+                if (success) {
+                    // 验证tab是否真的切换成功
+                    const tabElement = document.getElementById(tabId);
+                    if (tabElement && tabElement.classList.contains('active')) {
+                        console.log(`成功切换到tab ${tabId}`);
+                        return true;
+                    }
+                }
+                
+                retries++;
+                if (retries < maxRetries) {
+                    console.log(`切换失败，${retryDelay}ms后重试...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                }
+            }
+            
+            console.error(`切换到tab ${tabId} 失败，已尝试 ${maxRetries} 次`);
+            return false;
         }
         
         // 更新代理选择下拉框
@@ -7212,47 +7276,6 @@
         // 停止标志
         let stopCalcFlag = false;
         
-        // 正价套餐清单
-        let packageList = [];
-        
-        // 导入正价套餐清单
-        document.getElementById('importPackageListBtn').addEventListener('click', function() {
-            document.getElementById('packageListFileInput').click();
-        });
-        
-        document.getElementById('packageListFileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            const statusMessage = document.getElementById('packageListStatusMessage');
-            const packageListText = document.getElementById('packageListText');
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const content = e.target.result;
-                    packageListText.value = content;
-                    
-                    // 解析正价套餐清单
-                    const lines = content.split('\n');
-                    packageList = [];
-                    for (const line of lines) {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine === '') continue;
-                        packageList.push(trimmedLine);
-                    }
-                    
-                    statusMessage.innerHTML = `<div class="success-message">导入成功！共导入 ${packageList.length} 个正价套餐</div>`;
-                } catch (error) {
-                    statusMessage.innerHTML = `<div class="error-message">导入失败: ${error.message}</div>`;
-                }
-            };
-            reader.onerror = function() {
-                statusMessage.innerHTML = '<div class="error-message">文件读取失败</div>';
-            };
-            reader.readAsText(file, 'utf-8');
-        });
-        
         // 学生试听转化计算功能
         document.getElementById('calculateConversionBtn').addEventListener('click', async function() {
             const calcBtn = document.getElementById('calculateConversionBtn');
@@ -7266,12 +7289,6 @@
             const progressBar = document.getElementById('calcProgressBar');
             const calcDataSection = document.getElementById('calcDataSection');
             const calcDataTableBody = document.getElementById('calcDataTableBody');
-            
-            // 验证输入
-            if (packageList.length === 0) {
-                statusMessage.innerHTML = '<div class="error-message">请先导入正价套餐清单</div>';
-                return;
-            }
             
             // 显示加载状态
             calcBtn.disabled = true;
@@ -7352,10 +7369,11 @@
                 
                 let processedStudents = 0;
                 let convertedStudents = 0;
+                let oldUserStudents = 0;
                 const allResults = [];
                 
                 // 安全查询配置：优化批次大小和延迟，提升查询频率
-                const batchSize = 6; // 每批查询的用户数量，从3增加到6以提升频率
+                const batchSize = 6; // 每批查询的用户数量
                 const students = Object.keys(studentStats);
                 
                 // 处理每个批次的学生
@@ -7376,47 +7394,24 @@
                             // 查询用户套餐信息
                             let packageInfo = [];
                             let isConverted = false;
+                            let totalInitialPoint = 0;
+                            let userType = '';
+                            let hasFirstEvaluationClass = false;
+                            let firstEvaluationClassDate = null;
+                            let hasLargePackageBeforeEvaluation = false;
+                            let hasNewLargePackageAfterEvaluation = false;
                             
                             try {
-                                // 直接使用较大的pageSize，避免第二次请求
-                                const response = await fetch('https://www.talk915.com/market/adminPackage/getPackageList', {
-                                    method: 'POST',
+                                // 查询用户套餐列表
+                                const response = await fetch(`https://www.talk915.com/users/studentManage/queryPackageList/${stuId}`, {
+                                    method: 'GET',
                                     headers: {
-                                        'Content-Type': 'application/json',
+                                        'token': storedToken,
                                         'Accept': 'application/json, text/plain, */*',
                                         'User-Agent': navigator.userAgent,
-                                        'Referer': 'https://www.talk915.com/admin/package/packageManagement',
-                                        'Origin': 'https://www.talk915.com',
-                                        'Token': storedToken,
-                                        'Sec-Fetch-Dest': 'empty',
-                                        'Sec-Fetch-Mode': 'cors',
-                                        'Sec-Fetch-Site': 'same-origin'
+                                        'Referer': 'https://www.talk915.com/admin/student/studentManage',
+                                        'Origin': 'https://www.talk915.com'
                                     },
-                                    body: JSON.stringify({
-                                        "phone": "",
-                                        "qq": "",
-                                        "createEndTime": "",
-                                        "createStartTime": "",
-                                        "validityStartTime": "",
-                                        "validityEndTime": "",
-                                        "mark": "",
-                                        "productId": "",
-                                        "status": 0,
-                                        "type": "",
-                                        "groups": "",
-                                        "experienceClass": "",
-                                        "gift": "",
-                                        "orderType": "",
-                                        "isSpmax": "",
-                                        "orgPackage": "",
-                                        "paramId": "",
-                                        "flag": "",
-                                        "billing": "",
-                                        "userId": stuId,
-                                        "urId": "",
-                                        "currPage": 0,
-                                        "pageSize": 1000
-                                    }),
                                     credentials: 'include' // 包含cookies
                                 });
                                 
@@ -7427,26 +7422,104 @@
                                 const data = await response.json();
                                 const packages = data.resultData || [];
                                 
-                                // 匹配正价套餐
+                                // 排除关键字列表
+                                const excludeKeywords = ['公开课'];
+                                
+                                // 检查是否有首次测评课
+                                // console.log(`学生 ${stuId} 开始检查首次测评课`);
+                                
+                                // 从studentStats中获取该学生的上课记录
+                                const student = studentStats[stuId];
+                                // console.log(`学生 ${stuId} 上课记录: ${JSON.stringify(student.classRecords)}`);
+                                
+                                let isFirstEvaluation = false;
+                                let firstEvaluationClassDate = null;
+                                
+                                // 检查该学生的每一条上课记录
+                                for (const classRecord of student.classRecords) {
+                                    // console.log(`学生 ${stuId} 检查上课记录: ${classRecord}`);
+                                    // 检查记录中是否包含首次测评相关的关键词
+                                    if (classRecord.includes('首次测评') || classRecord.includes('测评课')) {
+                                        isFirstEvaluation = true;
+                                        // 提取日期
+                                        const dateMatch = classRecord.match(/^(\d{4}-\d{2}-\d{2})/);
+                                        if (dateMatch) {
+                                            firstEvaluationClassDate = dateMatch[1];
+                                            // console.log(`学生 ${stuId} 首次测评课日期: ${firstEvaluationClassDate}`);
+                                        }
+                                        break;
+                                    }
+                                }
+                                
+                                // console.log(`学生 ${stuId} 首次测评课检测结果: isFirstEvaluation=${isFirstEvaluation}, firstEvaluationClassDate=${firstEvaluationClassDate}`);
+                                
+                                // 处理套餐信息
+                                // console.log(`学生 ${stuId} 套餐数量: ${packages.length}`);
                                 for (const pkg of packages) {
                                     const productName = pkg.productName || '';
-                                    if (packageList.includes(productName)) {
-                                        // 提取日期（yyyy-mm-dd）
-                                        const createTime = pkg.createTime || '';
-                                        const dateMatch = createTime.match(/^(\d{4}-\d{2}-\d{2})/);
-                                        const date = dateMatch ? dateMatch[1] : '';
-                                        
-                                        packageInfo.push(`${date}+${productName}`);
-                                        isConverted = true;
+                                    
+                                    // 检查套餐名是否包含任何排除关键字
+                                    const shouldExclude = excludeKeywords.some(keyword => productName.includes(keyword));
+                                    
+                                    // 提取日期（yyyy-mm-dd）
+                                    const createTime = pkg.createTime || '';
+                                    const dateMatch = createTime.match(/^(\d{4}-\d{2}-\d{2})/);
+                                    const date = dateMatch ? dateMatch[1] : '';
+                                    
+                                    // 标记排除的套餐
+                                    const excludeMark = shouldExclude ? ' [排除]' : '';
+                                    packageInfo.push(`${date}-${productName}${excludeMark} ${pkg.initialPoint || 0}/${pkg.balance || 0}`);
+                                    
+                                    // 只统计未被排除的套餐课时
+                                    if (!shouldExclude) {
+                                        totalInitialPoint += parseInt(pkg.initialPoint) || 0;
                                     }
+                                    
+                                    // 检查是否有大于49课时的套餐（所有套餐都要检查，不仅仅是未被排除的）
+                                    const initialPoint = parseInt(pkg.initialPoint) || 0;
+                                    if (initialPoint > 49) {
+                                        // console.log(`学生 ${stuId} 发现大于49课时的套餐: ${productName}, 课时: ${initialPoint}, 购买日期: ${date}`);
+                                        if (isFirstEvaluation && firstEvaluationClassDate && date) {
+                                            // console.log(`学生 ${stuId} 首次测评课日期: ${firstEvaluationClassDate}, 套餐购买日期: ${date}`);
+                                            // console.log(`日期比较结果: ${date} < ${firstEvaluationClassDate} = ${date < firstEvaluationClassDate}`);
+                                            // 检查套餐购买时间是否在首次测评课之前
+                                            if (date < firstEvaluationClassDate) {
+                                                hasLargePackageBeforeEvaluation = true;
+                                                // console.log(`学生 ${stuId} 有大于49课时的套餐在首次测评课之前`);
+                                            }
+                                            // 检查套餐购买时间是否在首次测评课之后
+                                            if (date > firstEvaluationClassDate) {
+                                                hasNewLargePackageAfterEvaluation = true;
+                                                // console.log(`学生 ${stuId} 有大于49课时的套餐在首次测评课之后`);
+                                            }
+                                        }
+                                    }
+                                }
+                                // console.log(`学生 ${stuId} 累计课时: ${totalInitialPoint}`);
+                                
+                                // 判断是否转化：累计课时大于51
+                                isConverted = totalInitialPoint > 51;
+                                // console.log(`学生 ${stuId} 转化状态: ${isConverted ? '已转化' : '未转化'}`);
+                                
+                                // 老用户检测
+                                // console.log(`学生 ${stuId} 老用户检测: isFirstEvaluation=${isFirstEvaluation}, hasLargePackageBeforeEvaluation=${hasLargePackageBeforeEvaluation}, hasNewLargePackageAfterEvaluation=${hasNewLargePackageAfterEvaluation}`);
+                                if (isFirstEvaluation && hasLargePackageBeforeEvaluation && !hasNewLargePackageAfterEvaluation) {
+                                    userType = '老用户';
+                                    // console.log(`学生 ${stuId} 标记为老用户`);
+                                } else {
+                                    // console.log(`学生 ${stuId} 未标记为老用户`);
                                 }
                             } catch (error) {
                                 console.error(`查询学生 ${stuId} 的套餐信息时出错:`, error);
                                 // 继续处理下一个学生
                             }
                             
-                            if (isConverted) {
+                            if (isConverted && userType !== '老用户') {
                                 convertedStudents++;
+                            }
+                            
+                            if (userType === '老用户') {
+                                oldUserStudents++;
                             }
                             
                             // 构建结果对象
@@ -7455,8 +7528,9 @@
                                 classRecords: classRecordStr,
                                 classCount: student.classCount,
                                 absentCount: student.absentCount,
-                                packages: packageInfo.join('，'),
-                                conversionStatus: isConverted ? '已转化' : '未转化'
+                                packages: packageInfo.join('；'),
+                                conversionStatus: isConverted ? '已转化' : '未转化',
+                                userType: userType
                             };
                         })
                     );
@@ -7473,7 +7547,6 @@
                     }
                     
                     // 增加延迟，避免请求过于频繁导致被封IP
-                    // 优化：将延迟从120ms减少到60ms，提升查询频率2倍
                     await new Promise(resolve => setTimeout(resolve, 60));
                 }
                 
@@ -7484,10 +7557,13 @@
                 calcResultMessage.innerHTML = `<div class="success-message">计算${stopCalcFlag ? '停止' : '完成'}！共处理 ${processedStudents} 个学生</div>`;
                 
                 // 显示计算统计
+                const validStudents = totalStudents - oldUserStudents;
                 let statsHtml = `总学生数: ${totalStudents}\n`;
                 statsHtml += `已处理学生数: ${processedStudents}\n`;
                 statsHtml += `已转化学生数: ${convertedStudents}\n`;
-                statsHtml += `转化率: ${totalStudents > 0 ? ((convertedStudents / totalStudents) * 100).toFixed(2) : 0}%\n`;
+                statsHtml += `首次测评课老用户数: ${oldUserStudents}\n`;
+                statsHtml += `有效学生数: ${validStudents}\n`;
+                statsHtml += `转化率: ${validStudents > 0 ? ((convertedStudents / validStudents) * 100).toFixed(2) : 0}%\n`;
                 calcQueryStats.textContent = statsHtml;
                 
                 // 填充表格数据
@@ -7502,6 +7578,7 @@
                             <td style="border: 1px solid #ddd; padding: 8px;">${result.absentCount}</td>
                             <td style="border: 1px solid #ddd; padding: 8px;">${result.packages || ''}</td>
                             <td style="border: 1px solid #ddd; padding: 8px;">${result.conversionStatus}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${result.userType || ''}</td>
                         `;
                         calcDataTableBody.appendChild(row);
                     });
@@ -7513,11 +7590,12 @@
                 // 优化存储结构，限制长字段长度
                 const optimizedAllResults = allResults.map(result => ({
                     stuId: result.stuId,
-                    classRecords: result.classRecords ? result.classRecords.substring(0, 500) : '', // 进一步减少长度
+                    classRecords: result.classRecords ? result.classRecords.substring(0, 500) : '',
                     classCount: result.classCount,
                     absentCount: result.absentCount,
-                    packages: result.packages ? result.packages.substring(0, 500) : '', // 进一步减少长度
-                    conversionStatus: result.conversionStatus
+                    packages: result.packages ? result.packages.substring(0, 500) : '',
+                    conversionStatus: result.conversionStatus,
+                    userType: result.userType
                 }));
                 
                 const resultData = {
@@ -7525,7 +7603,9 @@
                     totalStudents: totalStudents,
                     processedStudents: processedStudents,
                     convertedStudents: convertedStudents,
-                    conversionRate: totalStudents > 0 ? (convertedStudents / totalStudents) * 100 : 0,
+                    oldUserStudents: oldUserStudents,
+                    validStudents: validStudents,
+                    conversionRate: validStudents > 0 ? (convertedStudents / validStudents) * 100 : 0,
                     results: optimizedAllResults
                 };
                 
@@ -7544,13 +7624,14 @@
                             // 尝试存储更小的数据结构
                             try {
                                 localStorage.setItem('talk915_conversion_calc_summary', JSON.stringify({
-                                    queryDate: new Date().toISOString(),
-                                    totalStudents: totalStudents,
-                                    processedStudents: processedStudents,
-                                    convertedStudents: convertedStudents,
-                                    conversionRate: totalStudents > 0 ? (convertedStudents / totalStudents) * 100 : 0
-                                    // 只存储汇总信息，不存储详细记录
-                                }));
+                                        queryDate: new Date().toISOString(),
+                                        totalStudents: totalStudents,
+                                        processedStudents: processedStudents,
+                                        convertedStudents: convertedStudents,
+                                        oldUserStudents: oldUserStudents,
+                                        validStudents: validStudents,
+                                        conversionRate: validStudents > 0 ? (convertedStudents / validStudents) * 100 : 0
+                                    }));
                                 console.log('学生试听转化计算汇总信息存储到 localStorage 成功');
                             } catch (e) {
                                 console.warn('存储汇总信息也失败:', e);
@@ -7572,8 +7653,9 @@
                                 totalStudents: totalStudents,
                                 processedStudents: processedStudents,
                                 convertedStudents: convertedStudents,
-                                conversionRate: totalStudents > 0 ? (convertedStudents / totalStudents) * 100 : 0
-                                // 只存储汇总信息，不存储详细记录
+                                oldUserStudents: oldUserStudents,
+                                validStudents: validStudents,
+                                conversionRate: validStudents > 0 ? (convertedStudents / validStudents) * 100 : 0
                             }));
                             console.log('学生试听转化计算汇总信息存储到 localStorage 成功');
                         } catch (e) {
@@ -7621,11 +7703,11 @@
             
             try {
                 // 构建导出文本，包含页面显示的所有字段
-                let exportText = '序号,学号,上课记录,上课数,缺勤数,正价套餐,转化状态\n';
+                let exportText = '序号,学号,上课记录,上课数,缺勤数,正价套餐,转化状态,用户类型\n';
                 
                 rows.forEach((row, index) => {
                     const cells = row.querySelectorAll('td');
-                    if (cells.length >= 7) {
+                    if (cells.length >= 8) {
                         const serialNumber = cells[0].textContent.trim();
                         const stuId = cells[1].textContent.trim();
                         const classRecords = cells[2].textContent.trim();
@@ -7633,8 +7715,9 @@
                         const absentCount = cells[4].textContent.trim();
                         const packages = cells[5].textContent.trim();
                         const conversionStatus = cells[6].textContent.trim();
+                        const userType = cells[7].textContent.trim();
                         
-                        exportText += `${serialNumber},${stuId},${classRecords},${classCount},${absentCount},${packages},${conversionStatus}\n`;
+                        exportText += `${serialNumber},${stuId},${classRecords},${classCount},${absentCount},${packages},${conversionStatus},${userType}\n`;
                     }
                 });
                 
@@ -7720,10 +7803,12 @@
                     throw new Error('基础数据为空');
                 }
                 
-                // 构建学生转化状态映射
+                // 构建学生转化状态和用户类型映射
                 const studentConversionMap = {};
+                const studentUserTypeMap = {};
                 for (const record of studentRecords) {
                     studentConversionMap[record.stuId] = record.conversionStatus === '已转化';
+                    studentUserTypeMap[record.stuId] = record.userType || '';
                 }
                 
                 // 按老师ID分组统计
@@ -7737,12 +7822,29 @@
                     
                     if (!teacherId) continue;
                     
+                    // 检查是否是老用户
+                    if (studentUserTypeMap[stuId] === '老用户') {
+                        // 如果是老用户，只记录到首次测评课老用户ID列表
+                        if (!teacherStats[teacherId]) {
+                            teacherStats[teacherId] = {
+                                teacherId: teacherId,
+                                teacherName: teacherName || '',
+                                students: new Set(), // 去重学生ID
+                                convertedStudents: new Set(), // 去重已转化学生ID
+                                oldUsers: new Set() // 首次测评课老用户ID
+                            };
+                        }
+                        teacherStats[teacherId].oldUsers.add(stuId);
+                        continue; // 跳过老用户的其他统计
+                    }
+                    
                     if (!teacherStats[teacherId]) {
                         teacherStats[teacherId] = {
                             teacherId: teacherId,
                             teacherName: teacherName || '',
                             students: new Set(), // 去重学生ID
-                            convertedStudents: new Set() // 去重已转化学生ID
+                            convertedStudents: new Set(), // 去重已转化学生ID
+                            oldUsers: new Set() // 首次测评课老用户ID
                         };
                     }
                     
@@ -7764,6 +7866,7 @@
                     // 将Set转换为数组并按逗号分隔
                     const studentIds = Array.from(stat.students).join('，');
                     const convertedStudentIds = Array.from(stat.convertedStudents).join('，');
+                    const oldUserIds = Array.from(stat.oldUsers).join('，');
                     
                     return {
                         teacherId: stat.teacherId,
@@ -7772,7 +7875,8 @@
                         convertedStudents: convertedStudents,
                         conversionRate: conversionRate,
                         studentIds: studentIds,
-                        convertedStudentIds: convertedStudentIds
+                        convertedStudentIds: convertedStudentIds,
+                        oldUserIds: oldUserIds
                     };
                 });
                 
@@ -7828,6 +7932,7 @@
                             <td style="border: 1px solid #ddd; padding: 8px;">${result.conversionRate.toFixed(2)}%</td>
                             <td style="border: 1px solid #ddd; padding: 8px;">${result.studentIds || ''}</td>
                             <td style="border: 1px solid #ddd; padding: 8px;">${result.convertedStudentIds || ''}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${result.oldUserIds || ''}</td>
                         `;
                         calcDataTableBody.appendChild(row);
                         
@@ -7948,11 +8053,11 @@
             
             try {
                 // 构建导出文本，包含页面显示的所有字段
-                let exportText = '序号,老师ID,老师姓名,上课学生数,已转化学生数,转化率,试听学员ID,转化学员ID\n';
+                let exportText = '序号,老师ID,老师姓名,上课学生数,已转化学生数,转化率,试听学员ID,转化学员ID,首次测评课老用户ID\n';
                 
                 rows.forEach((row, index) => {
                     const cells = row.querySelectorAll('td');
-                    if (cells.length >= 8) {
+                    if (cells.length >= 9) {
                         const serialNumber = cells[0].textContent.trim();
                         const teacherId = cells[1].textContent.trim();
                         const teacherName = cells[2].textContent.trim();
@@ -7961,8 +8066,9 @@
                         const conversionRate = cells[5].textContent.trim();
                         const studentIds = cells[6].textContent.trim();
                         const convertedStudentIds = cells[7].textContent.trim();
+                        const oldUserIds = cells[8].textContent.trim();
                         
-                        exportText += `${serialNumber},${teacherId},${teacherName},${totalStudents},${convertedStudents},${conversionRate},${studentIds},${convertedStudentIds}\n`;
+                        exportText += `${serialNumber},${teacherId},${teacherName},${totalStudents},${convertedStudents},${conversionRate},${studentIds},${convertedStudentIds},${oldUserIds}\n`;
                     }
                 });
                 
@@ -8187,20 +8293,6 @@
                 addTaskLog(`使用原有老师名单文件: ${importFiles.teacherListFile}`);
             }
             
-            // 读取正价套餐清单文件
-            const packageListFileInput = document.getElementById('packageListFile');
-            if (packageListFileInput.files && packageListFileInput.files.length > 0) {
-                const file = packageListFileInput.files[0];
-                importFiles.packageListFile = file.name;
-                importFiles.packageListFileContent = await readFileContent(file);
-                addTaskLog(`正价套餐清单文件已读取: ${file.name}`);
-            } else if (packageListFileInput.dataset.originalContent) {
-                // 如果没有选择新文件，但有保存的文件内容，则使用原有的文件内容
-                importFiles.packageListFile = packageListFileInput.dataset.originalFileName;
-                importFiles.packageListFileContent = packageListFileInput.dataset.originalContent;
-                addTaskLog(`使用原有正价套餐清单文件: ${importFiles.packageListFile}`);
-            }
-            
             // 获取老师名单查询选项
             const queryPrice = document.getElementById('queryPriceCheckbox') ? document.getElementById('queryPriceCheckbox').checked : false;
             
@@ -8257,11 +8349,9 @@
             // 检查是否有保存的文件内容
             const agentFileInput = document.getElementById('agentListFile');
             const teacherFileInput = document.getElementById('teacherListFile');
-            const packageFileInput = document.getElementById('packageListFile');
             
             const hasSavedAgentList = agentFileInput.dataset.hasSavedContent === 'true' || agentFileInput.value !== '';
             const hasSavedTeacherList = teacherFileInput.dataset.hasSavedContent === 'true' || teacherFileInput.value !== '';
-            const hasSavedPackageList = packageFileInput.dataset.hasSavedContent === 'true' || packageFileInput.value !== '';
             
             // 老师名单查询：必须指定导入代理清单文件
             if (selectedModules.includes('teacher-list')) {
@@ -8744,16 +8834,21 @@
         // 执行老师名单查询模块
         async function executeTeacherListModule(task) {
             addTaskLog('执行老师名单查询模块');
-            
+
             // 切换到老师名单查询tab
-            switchTab('teacher-list-tab');
-            
+            const switchSuccess = await switchTabWithRetry('teacher-list-tab');
+            if (!switchSuccess) {
+                addTaskLog('切换到老师名单查询页面失败，继续尝试...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 设置查询选项
             if (task.queryPrice) {
                 const queryPriceCheckbox = document.getElementById('queryPriceCheckbox');
                 if (queryPriceCheckbox) queryPriceCheckbox.checked = true;
             }
-            
+
             // 导入代理清单文件
             if (task.importFiles.agentListFileContent) {
                 const agentSelect = document.getElementById('agentSelect');
@@ -8773,13 +8868,13 @@
                     }
                 }
             }
-            
+
             // 点击查询按钮并等待完成
             const queryBtn = document.getElementById('queryTeacherListBtn');
             if (queryBtn) {
                 addTaskLog('开始老师名单查询...');
                 queryBtn.click();
-                
+
                 // 等待查询完成并导出
                 await waitForQueryAndExport('teacher-list', 'exportTeacherListBtn', task.name);
             }
@@ -8788,10 +8883,15 @@
         // 执行教务运营统计查询模块
         async function executeEducationOperateModule(task) {
             addTaskLog('执行教务运营统计查询模块');
-            
+
             // 切换到教务运营统计查询tab
-            switchTab('education-operate-tab');
-            
+            const switchSuccess = await switchTabWithRetry('education-operate-tab');
+            if (!switchSuccess) {
+                addTaskLog('切换到教务运营统计查询页面失败，继续尝试...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 设置日期范围
             if (task.dateRanges.length > 0) {
                 const startDateInput = document.getElementById('eduStartDate');
@@ -8799,13 +8899,13 @@
                 if (startDateInput) startDateInput.value = task.dateRanges[0].startDate;
                 if (endDateInput) endDateInput.value = task.dateRanges[0].endDate;
             }
-            
+
             // 点击查询按钮并等待完成
             const queryBtn = document.getElementById('queryEduBtn');
             if (queryBtn) {
                 addTaskLog('开始教务运营统计查询...');
                 queryBtn.click();
-                
+
                 // 等待查询完成并导出
                 await waitForQueryAndExport('edu', 'exportEduBtn', task.name);
             }
@@ -8814,10 +8914,15 @@
         // 执行老师VIP上课查询模块
         async function executeVipTimetableModule(task) {
             addTaskLog('执行老师VIP上课查询模块');
-            
+
             // 切换到VIP课表查询tab
-            switchTab('vip-timetable-tab');
-            
+            const switchSuccess = await switchTabWithRetry('vip-timetable-tab');
+            if (!switchSuccess) {
+                addTaskLog('切换到老师VIP上课查询页面失败，继续尝试...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 设置日期范围
             if (task.dateRanges.length > 0) {
                 const startDateInput = document.getElementById('classStartDate');
@@ -8825,7 +8930,7 @@
                 if (startDateInput) startDateInput.value = task.dateRanges[0].startDate;
                 if (endDateInput) endDateInput.value = task.dateRanges[0].endDate;
             }
-            
+
             // 导入老师名单文件
             if (task.importFiles.teacherListFileContent) {
                 const teacherIdsInput = document.getElementById('teacherIds');
@@ -8833,13 +8938,13 @@
                     teacherIdsInput.value = task.importFiles.teacherListFileContent;
                 }
             }
-            
+
             // 点击查询按钮并等待完成
             const queryBtn = document.getElementById('queryVipBtn');
             if (queryBtn) {
                 addTaskLog('开始老师VIP上课查询...');
                 queryBtn.click();
-                
+
                 // 等待查询完成并导出
                 await waitForQueryAndExport('vip', 'exportVipBtn', task.name);
             }
@@ -8848,10 +8953,15 @@
         // 执行约课查询模块
         async function executeVipScheduleModule(task) {
             addTaskLog('执行约课查询模块');
-            
+
             // 切换到约课查询tab
-            switchTab('vip-schedule-tab');
-            
+            const switchSuccess = await switchTabWithRetry('vip-schedule-tab');
+            if (!switchSuccess) {
+                addTaskLog('切换到约课查询页面失败，继续尝试...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 设置日期范围
             if (task.dateRanges.length > 0) {
                 const startDateInput = document.getElementById('vipScheduleStartDate');
@@ -8859,7 +8969,7 @@
                 if (startDateInput) startDateInput.value = task.dateRanges[0].startDate;
                 if (endDateInput) endDateInput.value = task.dateRanges[0].endDate;
             }
-            
+
             // 导入代理清单文件
             if (task.importFiles.agentListFileContent) {
                 const agentIdsInput = document.getElementById('agentIds');
@@ -8867,13 +8977,13 @@
                     agentIdsInput.value = task.importFiles.agentListFileContent;
                 }
             }
-            
+
             // 点击查询按钮并等待完成
             const queryBtn = document.getElementById('queryVipScheduleBtn');
             if (queryBtn) {
                 addTaskLog('开始约课查询...');
                 queryBtn.click();
-                
+
                 // 等待查询完成并导出
                 await waitForQueryAndExport('schedule', 'exportVipScheduleBtn', task.name);
             }
@@ -8882,10 +8992,15 @@
         // 执行老师2小时取消记录查询模块
         async function executeCancelRecordModule(task) {
             addTaskLog('执行老师2小时取消记录查询模块');
-            
+
             // 切换到取消记录查询tab
-            switchTab('cancel-record-tab');
-            
+            const switchSuccess = await switchTabWithRetry('cancel-record-tab');
+            if (!switchSuccess) {
+                addTaskLog('切换到取消记录查询页面失败，继续尝试...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 设置日期范围
             if (task.dateRanges.length > 0) {
                 const startDateInput = document.getElementById('cancelStartDate');
@@ -8893,7 +9008,7 @@
                 if (startDateInput) startDateInput.value = task.dateRanges[0].startDate;
                 if (endDateInput) endDateInput.value = task.dateRanges[0].endDate;
             }
-            
+
             // 导入老师名单文件
             if (task.importFiles.teacherListFileContent) {
                 const teacherIdsInput = document.getElementById('cancelTeacherIds');
@@ -8901,13 +9016,13 @@
                     teacherIdsInput.value = task.importFiles.teacherListFileContent;
                 }
             }
-            
+
             // 点击查询按钮并等待完成
             const queryBtn = document.getElementById('queryCancelRecordBtn');
             if (queryBtn) {
                 addTaskLog('开始老师2小时取消记录查询...');
                 queryBtn.click();
-                
+
                 // 等待查询完成并导出
                 await waitForQueryAndExport('cancel', 'exportCancelBtn', task.name);
             }
@@ -8916,10 +9031,15 @@
         // 执行代理成本核算模块
         async function executeAgentCostModule(task) {
             addTaskLog('执行代理成本核算模块');
-            
+
             // 切换到代理成本核算tab
-            switchTab('agent-cost-tab');
-            
+            const switchSuccess = await switchTabWithRetry('agent-cost-tab');
+            if (!switchSuccess) {
+                addTaskLog('切换到代理成本核算页面失败，继续尝试...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 设置日期范围
             if (task.dateRanges.length > 0) {
                 const startDateInput = document.getElementById('costStartDate');
@@ -9053,12 +9173,18 @@
         async function executeTrialConversionModule(task) {
             console.log('执行试听转化查询模块', { taskId: task.id, taskName: task.name });
             addTaskLog('执行试听转化查询模块');
-            
+
             try {
                 // 切换到试听转化查询tab
                 console.log('切换到试听转化查询tab');
-                switchTab('trial-conversion-tab');
-                
+                const switchSuccess = await switchTabWithRetry('trial-conversion-tab');
+                if (!switchSuccess) {
+                    console.error('切换到试听转化查询tab失败');
+                    addTaskLog('切换到试听转化查询tab失败，尝试继续执行...');
+                }
+                // 等待页面切换和DOM更新
+                await new Promise(resolve => setTimeout(resolve, 500));
+
                 // 设置日期范围
                 if (task.dateRanges.length > 0) {
                     console.log('设置日期范围', task.dateRanges[0]);
@@ -9067,39 +9193,14 @@
                     if (startDateInput) startDateInput.value = task.dateRanges[0].startDate;
                     if (endDateInput) endDateInput.value = task.dateRanges[0].endDate;
                 }
-                
-                // 导入正价套餐清单文件（用于后续计算）
-                if (task.importFiles.packageListFileContent) {
-                    console.log('导入正价套餐清单文件');
-                    const packageListInput = document.getElementById('packageListText');
-                    if (packageListInput) {
-                        packageListInput.value = task.importFiles.packageListFileContent;
-                        console.log('正价套餐清单文件导入成功');
-                        
-                        // 更新全局packageList变量
-                        if (typeof packageList !== 'undefined') {
-                            packageList = [];
-                            const lines = task.importFiles.packageListFileContent.split('\n');
-                            lines.forEach(line => {
-                                const trimmedLine = line.trim();
-                                if (trimmedLine !== '') {
-                                    packageList.push(trimmedLine);
-                                }
-                            });
-                            console.log('全局packageList变量已更新，共', packageList.length, '个套餐');
-                        }
-                    } else {
-                        console.warn('未找到packageListText输入元素');
-                    }
-                }
-                
+
                 // 点击查询按钮并等待完成
                 const queryBtn = document.getElementById('queryTrialBtn');
                 if (queryBtn) {
                     console.log('点击查询按钮');
                     addTaskLog('开始试听转化查询...');
                     queryBtn.click();
-                    
+
                     // 等待查询完成并导出
                     console.log('等待查询完成...');
                     await waitForQueryAndExport('trial', 'exportTrialBtn', task.name, queryBtn);
@@ -9110,7 +9211,6 @@
             } catch (error) {
                 console.error('执行试听转化查询模块失败:', error);
                 addTaskLog(`执行试听转化查询模块失败: ${error.message}`);
-                // 即使出错，也继续执行后续步骤
             }
         }
         
@@ -9118,43 +9218,24 @@
         async function executeTrialConversionCalcModule(task) {
             console.log('执行学生试听转化计算模块', { taskId: task.id, taskName: task.name });
             addTaskLog('执行学生试听转化计算模块');
-            
+
             // 切换到学生试听转化计算tab
             console.log('切换到学生试听转化计算tab');
-            switchTab('trial-conversion-calc-tab');
-            
-            // 导入正价套餐清单文件
-            if (task.importFiles.packageListFileContent) {
-                console.log('导入正价套餐清单文件');
-                const packageListInput = document.getElementById('packageListText');
-                if (packageListInput) {
-                    packageListInput.value = task.importFiles.packageListFileContent;
-                    console.log('正价套餐清单文件导入成功');
-                    
-                    // 更新全局packageList变量
-                    if (typeof packageList !== 'undefined') {
-                        packageList = [];
-                        const lines = task.importFiles.packageListFileContent.split('\n');
-                        lines.forEach(line => {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine !== '') {
-                                packageList.push(trimmedLine);
-                            }
-                        });
-                        console.log('全局packageList变量已更新，共', packageList.length, '个套餐');
-                    }
-                } else {
-                    console.warn('未找到packageListText输入元素');
-                }
+            const switchSuccess = await switchTabWithRetry('trial-conversion-calc-tab');
+            if (!switchSuccess) {
+                console.error('切换到学生试听转化计算tab失败');
+                addTaskLog('切换到学生试听转化计算tab失败，尝试继续执行...');
             }
-            
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 点击计算按钮并等待完成
             const calcBtn = document.getElementById('calculateConversionBtn');
             if (calcBtn) {
                 console.log('点击计算按钮');
                 addTaskLog('开始学生试听转化计算...');
                 calcBtn.click();
-                
+
                 // 等待计算完成并导出
                 console.log('等待计算完成...');
                 await waitForQueryAndExport('trial-calc', 'exportCalcBtn', task.name, calcBtn);
@@ -9168,18 +9249,24 @@
         async function executeTeacherConversionCalcModule(task) {
             console.log('执行老师试听转化计算模块', { taskId: task.id, taskName: task.name });
             addTaskLog('执行老师试听转化计算模块');
-            
+
             // 切换到老师试听转化计算tab
             console.log('切换到老师试听转化计算tab');
-            switchTab('teacher-conversion-calc-tab');
-            
+            const switchSuccess = await switchTabWithRetry('teacher-conversion-calc-tab');
+            if (!switchSuccess) {
+                console.error('切换到老师试听转化计算tab失败');
+                addTaskLog('切换到老师试听转化计算tab失败，尝试继续执行...');
+            }
+            // 等待页面切换和DOM更新
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // 点击计算按钮并等待完成
             const calcBtn = document.getElementById('calculateTeacherConversionBtn');
             if (calcBtn) {
                 console.log('点击计算按钮');
                 addTaskLog('开始老师试听转化计算...');
                 calcBtn.click();
-                
+
                 // 等待计算完成并导出
                 console.log('等待计算完成...');
                 await waitForQueryAndExport('teacher-calc', 'exportTeacherCalcBtn', task.name, calcBtn);
@@ -9743,7 +9830,7 @@
                             results = [];
                             calcRows.forEach((row, index) => {
                                 const cells = row.querySelectorAll('td');
-                                if (cells.length >= 7) {
+                                if (cells.length >= 8) {
                                     results.push({
                                         serialNumber: cells[0].textContent.trim(),
                                         stuId: cells[1].textContent.trim(),
@@ -9751,7 +9838,8 @@
                                         classCount: cells[3].textContent.trim(),
                                         absentCount: cells[4].textContent.trim(),
                                         packages: cells[5].textContent.trim(),
-                                        conversionStatus: cells[6].textContent.trim()
+                                        conversionStatus: cells[6].textContent.trim(),
+                                        userType: cells[7].textContent.trim()
                                     });
                                 }
                             });
@@ -9766,7 +9854,7 @@
                             results = [];
                             teacherCalcRows.forEach((row, index) => {
                                 const cells = row.querySelectorAll('td');
-                                if (cells.length >= 8) {
+                                if (cells.length >= 9) {
                                     results.push({
                                         serialNumber: cells[0].textContent.trim(),
                                         teacherId: cells[1].textContent.trim(),
@@ -9775,7 +9863,8 @@
                                         convertedStudents: cells[4].textContent.trim(),
                                         conversionRate: cells[5].textContent.trim(),
                                         studentIds: cells[6].textContent.trim(),
-                                        convertedStudentIds: cells[7].textContent.trim()
+                                        convertedStudentIds: cells[7].textContent.trim(),
+                                        oldUserIds: cells[8].textContent.trim()
                                     });
                                 }
                             });
