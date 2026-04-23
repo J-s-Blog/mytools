@@ -1850,10 +1850,11 @@
             // 方式1：通过data-tab属性查找
             tabButton = document.querySelector(`[data-tab="${tabId}"]`);
             
-            // 方式2：通过onclick属性查找
+            // 方式2：通过onclick属性查找（使用更宽松的匹配）
             if (!tabButton) {
                 tabButtons.forEach(button => {
-                    if (button.getAttribute('onclick') && button.getAttribute('onclick').includes(`switchTab('${tabId}')`)) {
+                    const onclick = button.getAttribute('onclick');
+                    if (onclick && onclick.includes(tabId)) {
                         tabButton = button;
                     }
                 });
@@ -1880,11 +1881,20 @@
                 const tabName = tabNameMap[tabId];
                 if (tabName) {
                     tabButtons.forEach(button => {
-                        if (button.textContent.trim() === tabName) {
+                        if (button.textContent.trim().includes(tabName)) {
                             tabButton = button;
                         }
                     });
                 }
+            }
+            
+            // 方式4：直接遍历所有按钮，查找可能的匹配
+            if (!tabButton) {
+                tabButtons.forEach(button => {
+                    if (button.textContent && button.textContent.trim().length > 0) {
+                        tabButton = button;
+                    }
+                });
             }
             
             if (tabButton) {
@@ -1897,15 +1907,20 @@
         }
 
         // 带重试机制的tab切换函数
-        async function switchTabWithRetry(tabId, maxRetries = 5, retryDelay = 1000) {
+        async function switchTabWithRetry(tabId, maxRetries = 10, retryDelay = 2000) {
             let retries = 0;
             
             while (retries < maxRetries) {
                 console.log(`尝试切换到tab ${tabId} (尝试 ${retries + 1}/${maxRetries})`);
+                
+                // 强制刷新DOM，确保元素状态最新
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
                 const success = switchTab(tabId);
                 
                 if (success) {
                     // 验证tab是否真的切换成功
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 等待DOM更新
                     const tabElement = document.getElementById(tabId);
                     if (tabElement && tabElement.classList.contains('active')) {
                         console.log(`成功切换到tab ${tabId}`);
@@ -4221,7 +4236,11 @@
                     exportTeacherListBtn.disabled = true;
                     
                     // 清空导出文件内容
-                    teacherListResults = [];
+                    if (currentTaskState) {
+                        currentTaskState.teacherListResults = [];
+                    } else {
+                        appState.teacherListResults = [];
+                    }
                     
                     // 清空统计信息
                     const teacherListQueryStats = document.getElementById('teacherListQueryStats');
@@ -4583,7 +4602,11 @@
                     exportTeacherListBtn.disabled = false;
                     
                     // 保存结果到全局变量，包含单价信息
-                    teacherListResults = teachers;
+                    if (currentTaskState) {
+                    currentTaskState.teacherListResults = teachers;
+                } else {
+                    appState.teacherListResults = teachers;
+                }
                 } else {
                     teacherListResultMessage.innerHTML = '<div class="error-message">未查询到任何老师信息</div>';
                     teacherListStatusMessage.innerHTML = '<div class="error-message">未查询到任何老师信息</div>';
@@ -4597,7 +4620,11 @@
                     exportTeacherListBtn.disabled = true;
                     
                     // 清空导出文件内容
-                    teacherListResults = [];
+                    if (currentTaskState) {
+                        currentTaskState.teacherListResults = [];
+                    } else {
+                        appState.teacherListResults = [];
+                    }
                     
                     // 清空统计信息
                     const teacherListQueryStats = document.getElementById('teacherListQueryStats');
@@ -4824,7 +4851,7 @@
         // 老师名单查询页面的导出结果功能
         document.getElementById('exportTeacherListBtn').addEventListener('click', function() {
             // 使用全局变量获取包含单价的老师列表
-            const teachers = teacherListResults;
+            const teachers = currentTaskState ? currentTaskState.teacherListResults : appState.teacherListResults;
             
             if (!teachers || teachers.length === 0) {
                 document.getElementById('statusMessage').innerHTML = '<div class="error-message">没有可导出的查询结果</div>';
@@ -8670,8 +8697,8 @@
         }
         
         // 立即执行任务
-        // 存储当前执行任务的结果
-        let currentTaskResults = {};
+        // 存储当前执行任务的结果和状态
+        let currentTaskState = null;
         
         // 执行任务
         async function executeTaskImmediately(taskId) {
@@ -8683,8 +8710,62 @@
             
             addTaskLog(`开始执行任务: ${task.name}`);
             
-            // 重置结果存储
-            currentTaskResults = {};
+            // 创建独立的任务状态对象，避免状态冲突
+            addTaskLog('创建独立的任务执行状态...');
+            currentTaskState = {
+                taskId: task.id,
+                taskName: task.name,
+                results: {},
+                stopFlags: {
+                    query: false,
+                    cancelQuery: false,
+                    trialQuery: false,
+                    scheduleQuery: false,
+                    eduQuery: false,
+                    calc: false,
+                    teacherCalc: false
+                },
+                teacherListResults: [],
+                startTime: new Date()
+            };
+            
+            // 重置所有全局停止标志变量，确保干净的开始状态
+            addTaskLog('重置全局停止标志...');
+            try {
+                // 重置VIP课表查询停止标志
+                window.stopQueryFlag = false;
+                // 重置约课查询停止标志
+                window.stopScheduleQueryFlag = false;
+                // 重置取消记录查询停止标志
+                window.stopCancelQueryFlag = false;
+                // 重置试听转化查询停止标志
+                window.stopTrialQueryFlag = false;
+                // 重置教务运营统计查询停止标志
+                window.stopEduQueryFlag = false;
+                // 重置学生试听转化计算停止标志
+                window.stopCalcFlag = false;
+                // 重置老师试听转化计算停止标志
+                window.stopTeacherCalcFlag = false;
+                addTaskLog('全局停止标志重置完成');
+            } catch (error) {
+                console.error('重置全局停止标志失败:', error);
+            }
+            
+            // 重置tab状态，确保没有残留的active状态
+            try {
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                const tabButtons = document.querySelectorAll('.tab-button');
+                tabButtons.forEach(button => {
+                    button.classList.remove('active');
+                });
+                addTaskLog('Tab状态重置完成');
+            } catch (error) {
+                console.error('重置Tab状态失败:', error);
+            }
             
             try {
                 // 自动登录
@@ -8725,9 +8806,9 @@
                 }
                 
                 // 所有模块执行完成后，导出Excel文件
-                if (Object.keys(currentTaskResults).length > 0) {
+                if (currentTaskState && Object.keys(currentTaskState.results).length > 0) {
                     addTaskLog('所有模块执行完成，开始导出Excel文件...');
-                    exportAllResultsToExcel(task.name, currentTaskResults);
+                    exportAllResultsToExcel(task.name, currentTaskState.results);
                     addTaskLog('Excel文件导出完成！');
                 } else {
                     addTaskLog('没有可导出的结果');
@@ -8828,20 +8909,37 @@
                 // 步骤1：试听转化查询
                 console.log('步骤 1/3：执行试听转化查询');
                 addTaskLog('步骤 1/3：执行试听转化查询...');
+                
+                // 重置tab状态，确保干净的开始
+                resetTabState();
                 await executeTrialConversionModule(task);
                 console.log('步骤 1/3：试听转化查询完成');
                 addTaskLog('试听转化查询完成');
                 
+                // 增加等待时间，确保页面完全切换
+                console.log('等待页面完全切换...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 // 步骤2：学生试听转化计算
                 console.log('步骤 2/3：执行学生试听转化计算');
                 addTaskLog('步骤 2/3：执行学生试听转化计算...');
+                
+                // 重置tab状态，确保干净的开始
+                resetTabState();
                 await executeTrialConversionCalcModule(task);
                 console.log('步骤 2/3：学生试听转化计算完成');
                 addTaskLog('学生试听转化计算完成');
                 
+                // 增加等待时间，确保页面完全切换
+                console.log('等待页面完全切换...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 // 步骤3：老师试听转化计算
                 console.log('步骤 3/3：执行老师试听转化计算');
                 addTaskLog('步骤 3/3：执行老师试听转化计算...');
+                
+                // 重置tab状态，确保干净的开始
+                resetTabState();
                 await executeTeacherConversionCalcModule(task);
                 console.log('步骤 3/3：老师试听转化计算完成');
                 addTaskLog('老师试听转化计算完成');
@@ -8851,6 +8949,24 @@
             } catch (error) {
                 console.error('执行试听转化查询序列失败:', error);
                 addTaskLog(`执行试听转化查询序列失败: ${error.message}`);
+            }
+        }
+        
+        // 重置tab状态的辅助函数
+        function resetTabState() {
+            try {
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                const tabButtons = document.querySelectorAll('.tab-button');
+                tabButtons.forEach(button => {
+                    button.classList.remove('active');
+                });
+                console.log('Tab状态重置完成');
+            } catch (error) {
+                console.error('重置Tab状态失败:', error);
             }
         }
         
@@ -9639,86 +9755,76 @@
             let waitedTime = 0;
             let worker = null;
             
-            // 缓存DOM元素，避免重复查询
-            const domElements = {
-                exportBtn: null,
-                resultSection: null,
-                calcStats: null,
-                statusMessage: null,
-                calcResultMessage: null,
-                trialResultContent: null
-            };
-            
-            // 初始化DOM元素缓存
-            function initDomElements() {
-                domElements.exportBtn = document.getElementById(exportBtnId);
-                
-                // 缓存结果区域元素
-                if (moduleType === 'trial-calc') {
-                    domElements.resultSection = document.getElementById('calcResultSection');
-                    domElements.calcStats = document.getElementById('calcQueryStats');
-                    domElements.calcResultMessage = document.getElementById('calcResultMessage');
-                } else if (moduleType === 'teacher-calc') {
-                    domElements.resultSection = document.getElementById('teacherCalcResultSection');
-                    domElements.calcStats = document.getElementById('teacherCalcQueryStats');
-                } else if (moduleType === 'trial') {
-                    domElements.resultSection = document.getElementById('trialResultSection');
-                    domElements.trialResultContent = document.getElementById('trialResultContent');
-                } else if (moduleType === 'edu') {
-                    domElements.resultSection = document.getElementById('eduResultSection');
-                } else if (moduleType === 'vip') {
-                    domElements.resultSection = document.getElementById('vipResultSection');
-                } else if (moduleType === 'schedule') {
-                    domElements.resultSection = document.getElementById('vipScheduleResultSection');
-                } else if (moduleType === 'cancel') {
-                    domElements.resultSection = document.getElementById('cancelResultSection');
-                } else if (moduleType === 'cost') {
-                    domElements.resultSection = document.getElementById('costResultSection');
-                } else if (moduleType === 'teacher-list') {
-                    domElements.resultSection = document.getElementById('teacherListResultSection');
-                }
-                
-                // 缓存状态消息元素
-                domElements.statusMessage = document.getElementById(
-                    moduleType === 'trial' ? 'trialStatusMessage' : 
-                    moduleType === 'trial-calc' ? 'calcStatusMessage' : 
-                    moduleType === 'teacher-calc' ? 'teacherCalcStatusMessage' :
-                    moduleType === 'edu' ? 'eduStatusMessage' :
-                    moduleType === 'vip' ? 'vipStatusMessage' :
-                    moduleType === 'schedule' ? 'vipScheduleStatusMessage' :
-                    moduleType === 'cancel' ? 'cancelStatusMessage' :
-                    moduleType === 'cost' ? 'costStatusMessage' :
-                    'teacherListStatusMessage'
-                );
-            }
-            
-            // 初始化DOM元素
-            initDomElements();
-            
             return new Promise((resolve) => {
                 function checkQueryStatus() {
                     waitedTime += checkInterval;
+                    
+                    // 实时获取DOM元素，避免缓存过时
+                    const exportBtn = document.getElementById(exportBtnId);
+                    
+                    // 实时获取结果区域元素
+                    let resultSection = null;
+                    let calcStats = null;
+                    let calcResultMessage = null;
+                    let trialResultContent = null;
+                    
+                    if (moduleType === 'trial-calc') {
+                        resultSection = document.getElementById('calcResultSection');
+                        calcStats = document.getElementById('calcQueryStats');
+                        calcResultMessage = document.getElementById('calcResultMessage');
+                    } else if (moduleType === 'teacher-calc') {
+                        resultSection = document.getElementById('teacherCalcResultSection');
+                        calcStats = document.getElementById('teacherCalcQueryStats');
+                    } else if (moduleType === 'trial') {
+                        resultSection = document.getElementById('trialResultSection');
+                        trialResultContent = document.getElementById('trialResultContent');
+                    } else if (moduleType === 'edu') {
+                        resultSection = document.getElementById('eduResultSection');
+                    } else if (moduleType === 'vip') {
+                        resultSection = document.getElementById('vipResultSection');
+                    } else if (moduleType === 'schedule') {
+                        resultSection = document.getElementById('vipScheduleResultSection');
+                    } else if (moduleType === 'cancel') {
+                        resultSection = document.getElementById('cancelResultSection');
+                    } else if (moduleType === 'cost') {
+                        resultSection = document.getElementById('costResultSection');
+                    } else if (moduleType === 'teacher-list') {
+                        resultSection = document.getElementById('teacherListResultSection');
+                    }
+                    
+                    // 实时获取状态消息元素
+                    const statusMessage = document.getElementById(
+                        moduleType === 'trial' ? 'trialStatusMessage' : 
+                        moduleType === 'trial-calc' ? 'calcStatusMessage' : 
+                        moduleType === 'teacher-calc' ? 'teacherCalcStatusMessage' :
+                        moduleType === 'edu' ? 'eduStatusMessage' :
+                        moduleType === 'vip' ? 'vipStatusMessage' :
+                        moduleType === 'schedule' ? 'vipScheduleStatusMessage' :
+                        moduleType === 'cancel' ? 'cancelStatusMessage' :
+                        moduleType === 'cost' ? 'costStatusMessage' :
+                        'teacherListStatusMessage'
+                    );
                     
                     // 检查查询按钮是否可用（查询完成时会恢复按钮状态）
                     const isQueryBtnEnabled = !queryBtn || !queryBtn.disabled;
                     
                     // 检查导出按钮是否可用（有结果时导出按钮会启用）
-                    const isExportBtnEnabled = domElements.exportBtn && !domElements.exportBtn.disabled;
+                    const isExportBtnEnabled = exportBtn && !exportBtn.disabled;
                     
                     // 检查结果区域是否显示（计算完成后会显示结果）
-                    const isResultSectionVisible = domElements.resultSection && domElements.resultSection.style.display === 'block';
+                    const isResultSectionVisible = resultSection && resultSection.style.display === 'block';
                     
                     // 检查计算统计结果是否显示（针对学生试听转化计算）
                     let isCalcStatsVisible = false;
-                    if (domElements.calcStats) {
-                        isCalcStatsVisible = domElements.calcStats.textContent.trim() !== '';
+                    if (calcStats) {
+                        isCalcStatsVisible = calcStats.textContent.trim() !== '';
                     }
                     
                     // 检查状态消息是否显示完成
                     let isStatusComplete = false;
                     let hasError = false;
-                    if (domElements.statusMessage) {
-                        const successMessages = domElements.statusMessage.querySelectorAll('.success-message');
+                    if (statusMessage) {
+                        const successMessages = statusMessage.querySelectorAll('.success-message');
                         for (const msg of successMessages) {
                             if (msg.textContent.includes('完成') || msg.textContent.includes('已保存')) {
                                 isStatusComplete = true;
@@ -9727,15 +9833,15 @@
                         }
                         
                         // 检查是否有错误消息（如果有错误也应该继续执行）
-                        const errorMessages = domElements.statusMessage.querySelectorAll('.error-message');
+                        const errorMessages = statusMessage.querySelectorAll('.error-message');
                         hasError = errorMessages.length > 0;
                     }
                     
                     // 综合判断：对于不同模块采用不同的判断逻辑
                     // 对于学生试听转化计算(trial-calc)，特别检查calcResultMessage元素是否显示计算完成
                     let isTrialCalcComplete = false;
-                    if (moduleType === 'trial-calc' && domElements.calcResultMessage) {
-                        const successMessages = domElements.calcResultMessage.querySelectorAll('.success-message');
+                    if (moduleType === 'trial-calc' && calcResultMessage) {
+                        const successMessages = calcResultMessage.querySelectorAll('.success-message');
                         for (const msg of successMessages) {
                             if (msg.textContent.includes('计算完成')) {
                                 isTrialCalcComplete = true;
@@ -9749,8 +9855,8 @@
                     if (moduleType === 'trial') {
                         // 检查是否有明确的查询完成消息
                         let hasCompleteMessage = false;
-                        if (domElements.statusMessage) {
-                            const successMessages = domElements.statusMessage.querySelectorAll('.success-message');
+                        if (statusMessage) {
+                            const successMessages = statusMessage.querySelectorAll('.success-message');
                             for (const msg of successMessages) {
                                 if (msg.textContent.includes('查询完成') || msg.textContent.includes('查询成功')) {
                                     hasCompleteMessage = true;
@@ -9761,8 +9867,8 @@
                         
                         // 检查结果区域是否显示且包含具体的查询结果
                         let hasVisibleResults = false;
-                        if (isResultSectionVisible && domElements.trialResultContent) {
-                            hasVisibleResults = domElements.trialResultContent.textContent.trim() !== '';
+                        if (isResultSectionVisible && trialResultContent) {
+                            hasVisibleResults = trialResultContent.textContent.trim() !== '';
                         }
                         
                         // 综合判断：需要有完成消息或可见的结果
@@ -9770,6 +9876,20 @@
                     } else {
                         // 其他模块：需要按钮可用且满足其他条件
                         isQueryComplete = isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isCalcStatsVisible || isStatusComplete || isTrialCalcComplete);
+                    }
+                    
+                    // 对于teacher-calc模块，增加额外的完成检测
+                    if (moduleType === 'teacher-calc' && !isQueryComplete) {
+                        // 检查是否有明确的计算完成消息
+                        if (statusMessage) {
+                            const successMessages = statusMessage.querySelectorAll('.success-message');
+                            for (const msg of successMessages) {
+                                if (msg.textContent.includes('计算完成') || msg.textContent.includes('计算成功')) {
+                                    isQueryComplete = true;
+                                    break;
+                                }
+                            }
+                        }
                     }
                     
                     if (isQueryComplete || hasError) {
@@ -9790,6 +9910,7 @@
                     // 输出等待时间信息，方便调试
                     if (waitedTime % 60000 === 0) { // 每分钟输出一次等待信息
                         console.log(`已等待${moduleType}查询完成: ${Math.floor(waitedTime / 60000)}分钟`);
+                        addTaskLog(`已等待${moduleType}查询完成: ${Math.floor(waitedTime / 60000)}分钟`);
                     }
                     
                     // 使用requestAnimationFrame或setTimeout，根据文档可见性选择
@@ -10010,8 +10131,8 @@
                         break;
                 }
                 
-                if (results.length > 0) {
-                    currentTaskResults[moduleType] = {
+                if (results.length > 0 && currentTaskState) {
+                    currentTaskState.results[moduleType] = {
                         name: getModuleName(moduleType),
                         headers: headers,
                         data: results
