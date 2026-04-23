@@ -2299,10 +2299,19 @@
         });
         
         // 全局变量，用于控制查询过程
-        let stopQueryFlag = false;
-        let stopCancelQueryFlag = false;
-        let stopTrialQueryFlag = false;
-        let teacherListResults = []; // 存储老师列表查询结果，替代localStorage
+        // 状态管理对象
+        const appState = {
+            // 任务执行状态
+            stopFlags: {
+                query: false,
+                cancelQuery: false,
+                trialQuery: false
+            },
+            // 存储老师列表查询结果，替代localStorage
+            teacherListResults: [],
+            // 存储定时任务
+            scheduledTasks: []
+        };
         
         // VIP课表查询功能
         document.getElementById('queryVipBtn').addEventListener('click', async function() {
@@ -8112,8 +8121,7 @@
         
         // ==================== 定时任务功能 ====================
         
-        // 定时任务全局变量
-        let scheduledTasks = [];
+        // 定时任务全局变量已移至appState对象中
         
         // 页面加载时初始化定时任务
         window.addEventListener('load', function() {
@@ -8211,18 +8219,18 @@
             const savedTasks = localStorage.getItem('talk915_education_scheduledTasks');
             if (savedTasks) {
                 try {
-                    scheduledTasks = JSON.parse(savedTasks);
+                    appState.scheduledTasks = JSON.parse(savedTasks);
                     displayScheduledTasks();
                 } catch (e) {
                     console.error('加载定时任务失败:', e);
-                    scheduledTasks = [];
+                    appState.scheduledTasks = [];
                 }
             }
         }
         
         // 保存定时任务
         function saveScheduledTasks() {
-            localStorage.setItem('talk915_education_scheduledTasks', JSON.stringify(scheduledTasks));
+            localStorage.setItem('talk915_education_scheduledTasks', JSON.stringify(appState.scheduledTasks));
         }
         
         // 创建定时任务
@@ -8327,7 +8335,7 @@
                 importFiles: importFiles,
                 queryPrice: queryPrice,
                 status: 'active',
-                createdAt: taskId ? scheduledTasks.find(t => t.id === taskId).createdAt : new Date().toISOString()
+                createdAt: taskId ? appState.scheduledTasks.find(t => t.id === taskId).createdAt : new Date().toISOString()
             };
             
             // 保存登录信息到localStorage
@@ -8339,9 +8347,9 @@
             
             if (taskId) {
                 // 更新现有任务
-                const taskIndex = scheduledTasks.findIndex(t => t.id === taskId);
+                const taskIndex = appState.scheduledTasks.findIndex(t => t.id === taskId);
                 if (taskIndex !== -1) {
-                    scheduledTasks[taskIndex] = task;
+                    appState.scheduledTasks[taskIndex] = task;
                     saveScheduledTasks();
                     displayScheduledTasks();
                     showScheduledTaskStatus('任务已更新', 'success');
@@ -8350,7 +8358,7 @@
                 }
             } else {
                 // 创建新任务
-                scheduledTasks.push(task);
+                appState.scheduledTasks.push(task);
                 saveScheduledTasks();
                 displayScheduledTasks();
                 showScheduledTaskStatus('任务创建成功', 'success');
@@ -8612,12 +8620,12 @@
             const taskList = document.getElementById('taskList');
             taskList.innerHTML = '';
             
-            if (scheduledTasks.length === 0) {
+            if (appState.scheduledTasks.length === 0) {
                 taskList.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">暂无定时任务</div>';
                 return;
             }
             
-            scheduledTasks.forEach(task => {
+            appState.scheduledTasks.forEach(task => {
                 const taskItem = document.createElement('div');
                 taskItem.className = 'task-item';
                 
@@ -8667,7 +8675,7 @@
         
         // 执行任务
         async function executeTaskImmediately(taskId) {
-            const task = scheduledTasks.find(t => t.id === taskId);
+            const task = appState.scheduledTasks.find(t => t.id === taskId);
             if (!task) {
                 showScheduledTaskStatus('任务不存在', 'error');
                 return;
@@ -9293,7 +9301,7 @@
         
         // 编辑任务
         function editTask(taskId) {
-            const task = scheduledTasks.find(t => t.id === taskId);
+            const task = appState.scheduledTasks.find(t => t.id === taskId);
             if (!task) {
                 showScheduledTaskStatus('任务不存在', 'error');
                 return;
@@ -9371,7 +9379,7 @@
         
         // 切换任务状态
         function toggleTaskStatus(taskId) {
-            const task = scheduledTasks.find(t => t.id === taskId);
+            const task = appState.scheduledTasks.find(t => t.id === taskId);
             if (!task) {
                 showScheduledTaskStatus('任务不存在', 'error');
                 return;
@@ -9389,7 +9397,7 @@
                 return;
             }
             
-            scheduledTasks = scheduledTasks.filter(t => t.id !== taskId);
+            appState.scheduledTasks = appState.scheduledTasks.filter(t => t.id !== taskId);
             saveScheduledTasks();
             displayScheduledTasks();
             showScheduledTaskStatus('任务已删除', 'success');
@@ -9397,7 +9405,7 @@
         
         // 导出定时任务
         function exportScheduledTasks() {
-            if (scheduledTasks.length === 0) {
+            if (appState.scheduledTasks.length === 0) {
                 showScheduledTaskStatus('没有定时任务可以导出', 'error');
                 return;
             }
@@ -9410,7 +9418,7 @@
                     <h3 style="margin-top: 0;">导出定时任务</h3>
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 10px; font-weight: bold;">选择要导出的任务：</label>
-                        ${scheduledTasks.map(task => `
+                        ${appState.scheduledTasks.map(task => `
                             <div style="margin-bottom: 8px;">
                                 <input type="checkbox" id="export-task-${task.id}" checked style="margin-right: 8px;">
                                 <label for="export-task-${task.id}">${task.name}</label>
@@ -9432,7 +9440,7 @@
             // 确认导出
             document.getElementById('confirmExport').addEventListener('click', function() {
                 const selectedTaskIds = [];
-                scheduledTasks.forEach(task => {
+                appState.scheduledTasks.forEach(task => {
                     const checkbox = document.getElementById(`export-task-${task.id}`);
                     if (checkbox && checkbox.checked) {
                         selectedTaskIds.push(task.id);
@@ -9444,7 +9452,7 @@
                     return;
                 }
                 
-                const selectedTasks = scheduledTasks.filter(task => selectedTaskIds.includes(task.id));
+                const selectedTasks = appState.scheduledTasks.filter(task => selectedTaskIds.includes(task.id));
                 const password = document.getElementById('exportPassword').value;
                 
                 try {
@@ -9533,12 +9541,12 @@
                         task.createdAt = new Date().toISOString();
                         
                         // 检查是否已存在同名任务
-                        const existingTask = scheduledTasks.find(t => t.name === task.name);
+                        const existingTask = appState.scheduledTasks.find(t => t.name === task.name);
                         if (existingTask) {
                             task.name = task.name + ' (导入)';
                         }
                         
-                        scheduledTasks.push(task);
+                        appState.scheduledTasks.push(task);
                     });
                     
                     saveScheduledTasks();
@@ -9631,111 +9639,107 @@
             let waitedTime = 0;
             let worker = null;
             
+            // 缓存DOM元素，避免重复查询
+            const domElements = {
+                exportBtn: null,
+                resultSection: null,
+                calcStats: null,
+                statusMessage: null,
+                calcResultMessage: null,
+                trialResultContent: null
+            };
+            
+            // 初始化DOM元素缓存
+            function initDomElements() {
+                domElements.exportBtn = document.getElementById(exportBtnId);
+                
+                // 缓存结果区域元素
+                if (moduleType === 'trial-calc') {
+                    domElements.resultSection = document.getElementById('calcResultSection');
+                    domElements.calcStats = document.getElementById('calcQueryStats');
+                    domElements.calcResultMessage = document.getElementById('calcResultMessage');
+                } else if (moduleType === 'teacher-calc') {
+                    domElements.resultSection = document.getElementById('teacherCalcResultSection');
+                    domElements.calcStats = document.getElementById('teacherCalcQueryStats');
+                } else if (moduleType === 'trial') {
+                    domElements.resultSection = document.getElementById('trialResultSection');
+                    domElements.trialResultContent = document.getElementById('trialResultContent');
+                } else if (moduleType === 'edu') {
+                    domElements.resultSection = document.getElementById('eduResultSection');
+                } else if (moduleType === 'vip') {
+                    domElements.resultSection = document.getElementById('vipResultSection');
+                } else if (moduleType === 'schedule') {
+                    domElements.resultSection = document.getElementById('vipScheduleResultSection');
+                } else if (moduleType === 'cancel') {
+                    domElements.resultSection = document.getElementById('cancelResultSection');
+                } else if (moduleType === 'cost') {
+                    domElements.resultSection = document.getElementById('costResultSection');
+                } else if (moduleType === 'teacher-list') {
+                    domElements.resultSection = document.getElementById('teacherListResultSection');
+                }
+                
+                // 缓存状态消息元素
+                domElements.statusMessage = document.getElementById(
+                    moduleType === 'trial' ? 'trialStatusMessage' : 
+                    moduleType === 'trial-calc' ? 'calcStatusMessage' : 
+                    moduleType === 'teacher-calc' ? 'teacherCalcStatusMessage' :
+                    moduleType === 'edu' ? 'eduStatusMessage' :
+                    moduleType === 'vip' ? 'vipStatusMessage' :
+                    moduleType === 'schedule' ? 'vipScheduleStatusMessage' :
+                    moduleType === 'cancel' ? 'cancelStatusMessage' :
+                    moduleType === 'cost' ? 'costStatusMessage' :
+                    'teacherListStatusMessage'
+                );
+            }
+            
+            // 初始化DOM元素
+            initDomElements();
+            
             return new Promise((resolve) => {
                 function checkQueryStatus() {
                     waitedTime += checkInterval;
                     
                     // 检查查询按钮是否可用（查询完成时会恢复按钮状态）
                     const isQueryBtnEnabled = !queryBtn || !queryBtn.disabled;
-                    const exportBtn = document.getElementById(exportBtnId);
                     
                     // 检查导出按钮是否可用（有结果时导出按钮会启用）
-                    const isExportBtnEnabled = exportBtn && !exportBtn.disabled;
+                    const isExportBtnEnabled = domElements.exportBtn && !domElements.exportBtn.disabled;
                     
                     // 检查结果区域是否显示（计算完成后会显示结果）
-                    let isResultSectionVisible = false;
-                    if (moduleType === 'trial-calc') {
-                        const resultSection = document.getElementById('calcResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'teacher-calc') {
-                        const resultSection = document.getElementById('teacherCalcResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'trial') {
-                        const resultSection = document.getElementById('trialResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'edu') {
-                        const resultSection = document.getElementById('eduResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'vip') {
-                        const resultSection = document.getElementById('vipResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'schedule') {
-                        const resultSection = document.getElementById('vipScheduleResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'cancel') {
-                        const resultSection = document.getElementById('cancelResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'cost') {
-                        const resultSection = document.getElementById('costResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    } else if (moduleType === 'teacher-list') {
-                        const resultSection = document.getElementById('teacherListResultSection');
-                        isResultSectionVisible = resultSection && resultSection.style.display === 'block';
-                    }
+                    const isResultSectionVisible = domElements.resultSection && domElements.resultSection.style.display === 'block';
                     
                     // 检查计算统计结果是否显示（针对学生试听转化计算）
                     let isCalcStatsVisible = false;
-                    if (moduleType === 'trial-calc') {
-                        const calcStats = document.getElementById('calcQueryStats');
-                        if (calcStats) {
-                            isCalcStatsVisible = calcStats.textContent.trim() !== '';
-                            console.log('检测到calcQueryStats元素，内容长度:', calcStats.textContent.trim().length);
-                            console.log('calcQueryStats内容:', calcStats.textContent.trim());
-                        } else {
-                            console.log('未找到calcQueryStats元素');
-                        }
-                    } else if (moduleType === 'teacher-calc') {
-                        const teacherCalcStats = document.getElementById('teacherCalcQueryStats');
-                        if (teacherCalcStats) {
-                            isCalcStatsVisible = teacherCalcStats.textContent.trim() !== '';
-                            console.log('检测到teacherCalcQueryStats元素，内容长度:', teacherCalcStats.textContent.trim().length);
-                        } else {
-                            console.log('未找到teacherCalcQueryStats元素');
-                        }
+                    if (domElements.calcStats) {
+                        isCalcStatsVisible = domElements.calcStats.textContent.trim() !== '';
                     }
                     
                     // 检查状态消息是否显示完成
                     let isStatusComplete = false;
-                    const statusMessage = document.getElementById(moduleType === 'trial' ? 'trialStatusMessage' : 
-                                                               moduleType === 'trial-calc' ? 'calcStatusMessage' : 
-                                                               moduleType === 'teacher-calc' ? 'teacherCalcStatusMessage' :
-                                                               moduleType === 'edu' ? 'eduStatusMessage' :
-                                                               moduleType === 'vip' ? 'vipStatusMessage' :
-                                                               moduleType === 'schedule' ? 'vipScheduleStatusMessage' :
-                                                               moduleType === 'cancel' ? 'cancelStatusMessage' :
-                                                               moduleType === 'cost' ? 'costStatusMessage' :
-                                                               'teacherListStatusMessage');
-                    if (statusMessage) {
-                        const successMessages = statusMessage.querySelectorAll('.success-message');
+                    let hasError = false;
+                    if (domElements.statusMessage) {
+                        const successMessages = domElements.statusMessage.querySelectorAll('.success-message');
                         for (const msg of successMessages) {
                             if (msg.textContent.includes('完成') || msg.textContent.includes('已保存')) {
                                 isStatusComplete = true;
                                 break;
                             }
                         }
-                    }
-                    
-                    // 检查是否有错误消息（如果有错误也应该继续执行）
-                    let hasError = false;
-                    if (statusMessage) {
-                        const errorMessages = statusMessage.querySelectorAll('.error-message');
+                        
+                        // 检查是否有错误消息（如果有错误也应该继续执行）
+                        const errorMessages = domElements.statusMessage.querySelectorAll('.error-message');
                         hasError = errorMessages.length > 0;
                     }
                     
                     // 综合判断：对于不同模块采用不同的判断逻辑
-                    // 对于试听转化查询(trial)，只要导出按钮可用且结果区域显示，就认为查询完成
                     // 对于学生试听转化计算(trial-calc)，特别检查calcResultMessage元素是否显示计算完成
                     let isTrialCalcComplete = false;
-                    if (moduleType === 'trial-calc') {
-                        const calcResultMessage = document.getElementById('calcResultMessage');
-                        if (calcResultMessage) {
-                            const successMessages = calcResultMessage.querySelectorAll('.success-message');
-                            for (const msg of successMessages) {
-                                if (msg.textContent.includes('计算完成')) {
-                                    isTrialCalcComplete = true;
-                                    console.log('检测到学生试听转化计算完成');
-                                    break;
-                                }
+                    if (moduleType === 'trial-calc' && domElements.calcResultMessage) {
+                        const successMessages = domElements.calcResultMessage.querySelectorAll('.success-message');
+                        for (const msg of successMessages) {
+                            if (msg.textContent.includes('计算完成')) {
+                                isTrialCalcComplete = true;
+                                break;
                             }
                         }
                     }
@@ -9745,8 +9749,8 @@
                     if (moduleType === 'trial') {
                         // 检查是否有明确的查询完成消息
                         let hasCompleteMessage = false;
-                        if (statusMessage) {
-                            const successMessages = statusMessage.querySelectorAll('.success-message');
+                        if (domElements.statusMessage) {
+                            const successMessages = domElements.statusMessage.querySelectorAll('.success-message');
                             for (const msg of successMessages) {
                                 if (msg.textContent.includes('查询完成') || msg.textContent.includes('查询成功')) {
                                     hasCompleteMessage = true;
@@ -9757,14 +9761,12 @@
                         
                         // 检查结果区域是否显示且包含具体的查询结果
                         let hasVisibleResults = false;
-                        if (isResultSectionVisible) {
-                            const resultContent = document.getElementById('trialResultContent');
-                            hasVisibleResults = resultContent && resultContent.textContent.trim() !== '';
+                        if (isResultSectionVisible && domElements.trialResultContent) {
+                            hasVisibleResults = domElements.trialResultContent.textContent.trim() !== '';
                         }
                         
                         // 综合判断：需要有完成消息或可见的结果
                         isQueryComplete = hasCompleteMessage || (isResultSectionVisible && hasVisibleResults);
-                        console.log('试听转化查询判断:', { hasCompleteMessage, isResultSectionVisible, hasVisibleResults, isQueryComplete });
                     } else {
                         // 其他模块：需要按钮可用且满足其他条件
                         isQueryComplete = isQueryBtnEnabled && (isExportBtnEnabled || isResultSectionVisible || isCalcStatsVisible || isStatusComplete || isTrialCalcComplete);
@@ -9783,17 +9785,6 @@
                         });
                         return;
                     }
-                    
-                    // 调试信息
-                    console.log(`等待${moduleType}查询完成...`, {
-                        isQueryBtnEnabled,
-                        isExportBtnEnabled,
-                        isResultSectionVisible,
-                        isCalcStatsVisible,
-                        isStatusComplete,
-                        hasError,
-                        waitedTime
-                    });
                     
                     // 不进行超时检查，一直等待直到任务完成
                     // 输出等待时间信息，方便调试
@@ -10144,7 +10135,7 @@
         
         // 根据任务名称查找任务
         function findTaskByName(taskName) {
-            return scheduledTasks.find(task => task.name === taskName);
+            return appState.scheduledTasks.find(task => task.name === taskName);
         }
         
         // 检查URL参数
