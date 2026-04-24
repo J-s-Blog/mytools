@@ -675,6 +675,8 @@
                                             <th>序号</th>
                                             <th>用户ID</th>
                                             <th>注册时间</th>
+                                            <th>是否试听</th>
+                                            <th>是否成交</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -1909,6 +1911,26 @@
                 createTimeCell.textContent = item.createTime || item.create_time || '-';
                 row.appendChild(createTimeCell);
                 
+                // 创建是否试听单元格
+                const teacherTypeCell = document.createElement('td');
+                // teacherType: 空为未试听，1为已试听
+                if (item.teacherType === 1) {
+                    teacherTypeCell.textContent = '已试听';
+                } else {
+                    teacherTypeCell.textContent = '未试听';
+                }
+                row.appendChild(teacherTypeCell);
+                
+                // 创建是否成交单元格
+                const isDealCell = document.createElement('td');
+                // isDeal: 0为未成交，1为已成交
+                if (item.isDeal === 1) {
+                    isDealCell.textContent = '已成交';
+                } else {
+                    isDealCell.textContent = '未成交';
+                }
+                row.appendChild(isDealCell);
+                
                 // 将行添加到表格中
                 tbody.appendChild(row);
                 console.log('添加行:', row);
@@ -2305,27 +2327,32 @@
         // 初始化IndexedDB
         function initIndexedDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                
-                request.onerror = (event) => {
-                    console.error('IndexedDB初始化失败:', event.target.error);
-                    // 即使初始化失败，也不影响主功能，使用window.followUpData作为备份
+                try {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onerror = (event) => {
+                        console.error('IndexedDB初始化失败:', event.target.error);
+                        // 即使初始化失败，也不影响主功能，使用window.followUpData作为备份
+                        resolve(null);
+                    };
+                    
+                    request.onsuccess = (event) => {
+                        db = event.target.result;
+                        console.log('IndexedDB初始化成功');
+                        resolve(db);
+                    };
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            const store = db.createObjectStore(STORE_NAME, { keyPath: 'userId' });
+                            store.createIndex('receiveTime', 'receiveTime', { unique: false });
+                        }
+                    };
+                } catch (error) {
+                    console.error('IndexedDB初始化异常:', error);
                     resolve(null);
-                };
-                
-                request.onsuccess = (event) => {
-                    db = event.target.result;
-                    console.log('IndexedDB初始化成功');
-                    resolve(db);
-                };
-                
-                request.onupgradeneeded = (event) => {
-                    const db = event.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'userId' });
-                        store.createIndex('receiveTime', 'receiveTime', { unique: false });
-                    }
-                };
+                }
             });
         }
         
@@ -2351,25 +2378,38 @@
                     
                     clearRequest.onsuccess = () => {
                         // 批量存储数据
-                        let count = 0;
-                        data.forEach(item => {
-                            const request = store.put(item);
-                            request.onerror = (event) => {
-                                console.error('存储数据失败:', event.target.error);
-                            };
-                            request.onsuccess = () => {
-                                count++;
-                                if (count === data.length) {
-                                    console.log(`成功存储 ${count} 条数据到IndexedDB`);
-                                    resolve(count);
-                                }
-                            };
-                        });
-                        
-                        // 如果数据为空，直接 resolve
                         if (data.length === 0) {
                             resolve(0);
+                            return;
                         }
+                        
+                        let count = 0;
+                        const total = data.length;
+                        
+                        const storeItem = (index) => {
+                            if (index >= total) {
+                                console.log(`成功存储 ${count} 条数据到IndexedDB`);
+                                resolve(count);
+                                return;
+                            }
+                            
+                            const item = data[index];
+                            const request = store.put(item);
+                            
+                            request.onerror = (event) => {
+                                console.error('存储数据失败:', event.target.error);
+                                count++;
+                                storeItem(index + 1);
+                            };
+                            
+                            request.onsuccess = () => {
+                                count++;
+                                storeItem(index + 1);
+                            };
+                        };
+                        
+                        // 开始存储
+                        storeItem(0);
                     };
                 } catch (error) {
                     console.error('存储数据到IndexedDB失败:', error);
@@ -2487,122 +2527,128 @@
                 // 处理当前批次
                 const batch = currentPageData.slice(i, i + batchSize);
                 await Promise.all(batch.map((item, index) => {
-                    const globalIndex = startIndex + i + index;
-                    
-                    // 格式化日期
-                    function formatDate(dateString) {
-                        if (!dateString) return '-';
-                        // 保留完整的日期和时间
-                        if (dateString.includes('T')) {
-                            // 将ISO格式转换为标准格式
-                            return dateString.replace('T', ' ');
-                        } else {
-                            return dateString;
-                        }
-                    }
-                    
-                    // 处理是否试听
-                    function getTrialClassText(value) {
-                        if (value === null) return '未试课';
-                        if (value === 1 || value === 2) return '已试课';
-                        return '-';
-                    }
-                    
-                    // 处理是否成交
-                    function getDealText(value) {
-                        if (value === 0) return '未成交';
-                        if (value === 1) return '已成交';
-                        return '-';
-                    }
-                    
-                    // 处理contactType
-                    function getContactTypeText(type) {
-                        switch(type) {
-                            case 1: return '已加微信';
-                            case 2: return '微信申请';
-                            case 3: return '无人接听';
-                            case 4: return '多次未接';
-                            case 5: return '接听挂断';
-                            case 6: return '暂无需求';
-                            case 7: return '内部员工';
-                            case 99: return '无跟进记录';
-                            default: return '其他';
-                        }
-                    }
-                    
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${globalIndex + 1}</td>
-                        <td>${item.userId || '-'}</td>
-                        <td>${item.mobileArea || '-'}</td>
-                        <td>${formatDate(item.createTime)}</td>
-                        <td>${formatDate(item.finalActiveTime)}</td>
-                        <td>${item.salesmanTalkId || '-'}</td>
-                        <td>${item.staffName || '-'}</td>
-                        <td>${item.staffTalkId || '-'}</td>
-                        <td>${formatDate(item.receiveTime)}</td>
-                        <td>${item.teachCourse || '-'}</td>
-                        <td>${getTrialClassText(item.getTrialClass)}</td>
-                        <td>${getDealText(item.isDeal)}</td>
-                        <td>加载中...</td>
-                        <td>分析中...</td>
-                        <td>-</td>
-                        <td>-</td>
-                    `;
-                    followUpTable.appendChild(row);
-                    
-                    // 从本地获取员工沟通记录
-                    if (item.userId) {
+                    return new Promise((resolve) => {
                         try {
-                            const record = item.followRecord || '';
-                            const cells = row.querySelectorAll('td');
-                            cells[12].textContent = record || '-';
+                            const globalIndex = startIndex + i + index;
                             
-                            try {
-                                // 分析沟通记录
-                            const analysisResult = analyzeCommunicationRecord(record, item.getTrialClass, item.isDeal);
-                            // 检查是否已试课或已成交
-                            const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
-                            const isDeal = item.isDeal === 1;
-                            if ((!record || record === '-') && (isTrialClass || isDeal)) {
-                                cells[13].textContent = '无沟通记录';
-                                cells[14].textContent = '未更新系统状态';
-                            } else {
-                                cells[13].textContent = analysisResult.result;
-                                cells[14].textContent = analysisResult.status;
+                            // 格式化日期
+                            function formatDate(dateString) {
+                                if (!dateString) return '-';
+                                // 保留完整的日期和时间
+                                if (dateString.includes('T')) {
+                                    // 将ISO格式转换为标准格式
+                                    return dateString.replace('T', ' ');
+                                } else {
+                                    return dateString;
+                                }
                             }
-                            cells[15].textContent = analysisResult.userIssue ? '是' : '否';
-                            } catch (error) {
-                                console.error('分析沟通记录错误:', error);
+                            
+                            // 处理是否试听
+                            function getTrialClassText(value) {
+                                if (value === null) return '未试课';
+                                if (value === 1 || value === 2) return '已试课';
+                                return '-';
+                            }
+                            
+                            // 处理是否成交
+                            function getDealText(value) {
+                                if (value === 0) return '未成交';
+                                if (value === 1) return '已成交';
+                                return '-';
+                            }
+                            
+                            // 处理contactType
+                            function getContactTypeText(type) {
+                                switch(type) {
+                                    case 1: return '已加微信';
+                                    case 2: return '微信申请';
+                                    case 3: return '无人接听';
+                                    case 4: return '多次未接';
+                                    case 5: return '接听挂断';
+                                    case 6: return '暂无需求';
+                                    case 7: return '内部员工';
+                                    case 99: return '无跟进记录';
+                                    default: return '其他';
+                                }
+                            }
+                            
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${globalIndex + 1}</td>
+                                <td>${item.userId || '-'}</td>
+                                <td>${item.mobileArea || '-'}</td>
+                                <td>${formatDate(item.createTime)}</td>
+                                <td>${formatDate(item.finalActiveTime)}</td>
+                                <td>${item.salesmanTalkId || '-'}</td>
+                                <td>${item.staffName || '-'}</td>
+                                <td>${item.staffTalkId || '-'}</td>
+                                <td>${formatDate(item.receiveTime)}</td>
+                                <td>${item.teachCourse || '-'}</td>
+                                <td>${getTrialClassText(item.getTrialClass)}</td>
+                                <td>${getDealText(item.isDeal)}</td>
+                                <td>加载中...</td>
+                                <td>分析中...</td>
+                                <td>-</td>
+                                <td>-</td>
+                            `;
+                            followUpTable.appendChild(row);
+                            
+                            // 从本地获取员工沟通记录
+                            if (item.userId) {
+                                try {
+                                    const record = item.followRecord || '';
+                                    const cells = row.querySelectorAll('td');
+                                    cells[12].textContent = record || '-';
+                                    
+                                    try {
+                                        // 分析沟通记录
+                                    const analysisResult = analyzeCommunicationRecord(record, item.getTrialClass, item.isDeal);
+                                    // 检查是否已试课或已成交
+                                    const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
+                                    const isDeal = item.isDeal === 1;
+                                    if ((!record || record === '-') && (isTrialClass || isDeal)) {
+                                        cells[13].textContent = '无沟通记录';
+                                        cells[14].textContent = '未更新系统状态';
+                                    } else {
+                                        cells[13].textContent = analysisResult.result;
+                                        cells[14].textContent = analysisResult.status;
+                                    }
+                                    cells[15].textContent = analysisResult.userIssue ? '是' : '否';
+                                    } catch (error) {
+                                        console.error('分析沟通记录错误:', error);
+                                        const cells = row.querySelectorAll('td');
+                                        cells[13].textContent = '分析失败';
+                                        cells[14].textContent = 'N';
+                                        cells[15].textContent = '否';
+                                    }
+                                } catch (error) {
+                                    console.error('获取沟通记录错误:', error);
+                                    const cells = row.querySelectorAll('td');
+                                    cells[12].textContent = '获取失败';
+                                    cells[13].textContent = '分析失败';
+                                    cells[14].textContent = 'N';
+                                    cells[15].textContent = '否';
+                                }
+                            } else {
                                 const cells = row.querySelectorAll('td');
-                                cells[13].textContent = '分析失败';
-                                cells[14].textContent = 'N';
+                                cells[12].textContent = '-';
+                                cells[13].textContent = '无沟通记录';
+                                // 检查是否已试课或已成交
+                                const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
+                                const isDeal = item.isDeal === 1;
+                                if (isTrialClass || isDeal) {
+                                    cells[14].textContent = '未更新系统状态';
+                                } else {
+                                    cells[14].textContent = '未沟通';
+                                }
                                 cells[15].textContent = '否';
                             }
                         } catch (error) {
-                            console.error('获取沟通记录错误:', error);
-                            const cells = row.querySelectorAll('td');
-                            cells[12].textContent = '获取失败';
-                            cells[13].textContent = '分析失败';
-                            cells[14].textContent = 'N';
-                            cells[15].textContent = '否';
+                            console.error('处理表格行错误:', error);
+                        } finally {
+                            resolve();
                         }
-                        return Promise.resolve();
-                    } else {
-                        const cells = row.querySelectorAll('td');
-                        cells[12].textContent = '-';
-                        cells[13].textContent = '无沟通记录';
-                        // 检查是否已试课或已成交
-                        const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
-                        const isDeal = item.isDeal === 1;
-                        if (isTrialClass || isDeal) {
-                            cells[14].textContent = '未更新系统状态';
-                        } else {
-                            cells[14].textContent = '未沟通';
-                        }
-                        cells[15].textContent = '否';
-                        return Promise.resolve();
-                    }
+                    });
                 }));
                 
                 // 每批处理后延迟一下，避免请求过于密集
