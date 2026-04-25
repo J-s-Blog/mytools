@@ -143,13 +143,32 @@
                     const content = e.target.result;
                     const data = JSON.parse(content);
                     
-                    if (data.resultData && Array.isArray(data.resultData)) {
-                        parsedData = data.resultData;
+                    // 尝试找到数据数组
+                    let dataArray = null;
+                    
+                    // 常见的数据字段名称
+                    const dataFields = ['resultData', 'data', 'items', 'records', 'list'];
+                    
+                    // 检查是否直接是数组
+                    if (Array.isArray(data)) {
+                        dataArray = data;
+                    } else {
+                        // 检查常见的数据字段
+                        for (const field of dataFields) {
+                            if (data[field] && Array.isArray(data[field])) {
+                                dataArray = data[field];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (dataArray) {
+                        parsedData = dataArray;
                         generateTable(parsedData);
                         message.innerHTML = `<div class="success">解析成功，共 ${parsedData.length} 条数据</div>`;
                         exportButton.disabled = false;
                     } else {
-                        message.innerHTML = '<div class="error">文件格式错误，未找到 resultData 数组</div>';
+                        message.innerHTML = '<div class="error">文件格式错误，未找到数据数组</div>';
                         exportButton.disabled = true;
                     }
                 } catch (error) {
