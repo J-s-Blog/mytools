@@ -705,7 +705,7 @@
                         <label>日期类型:</label>
                         <select id="dateType">
                             <option value="receive">领取日期</option>
-                            <option value="create">注册日期</option>
+                            <option value="create" selected>注册日期</option>
                         </select>
                     </div>
                 </div>
@@ -736,34 +736,98 @@
                 <div id="followUpResult" style="margin-top: 30px; display: none;">
                     <h3>查询结果</h3>
                     
+                    <!-- 子Tab切换 -->
+                    <div class="sub-tab-buttons" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <button class="sub-tab-button active" data-tab="followUpDetail">详细记录</button>
+                        <button class="sub-tab-button" data-tab="staffStatistics">顾问维度统计</button>
+                        <button class="sub-tab-button" data-tab="salesmanStatistics">推荐码维度统计</button>
+                    </div>
+                    
                     <!-- 状态信息 -->
                     <div id="followUpStatus" style="margin-bottom: 20px;"></div>
                     
-                    <!-- 跟进记录表格 -->
-                    <div class="table-container">
-                        <table id="followUpTable" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>序号</th>
-                                    <th>用户ID</th>
-                                    <th>地域</th>
-                                    <th>注册时间</th>
-                                    <th>最近登录时间</th>
-                                    <th>所属业务员</th>
-                                    <th>顾问姓名</th>
-                                    <th>顾问ID</th>
-                                    <th>领取时间</th>
-                                    <th>推荐码</th>
-                                    <th>是否试听</th>
-                                    <th>是否成交</th>
-                                    <th>员工沟通记录</th>
-                                    <th>分析结果</th>
-                                    <th>状态</th>
-                                    <th>用户问题</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                    <!-- 详细记录 -->
+                    <div id="followUpDetail" class="sub-tab-content active">
+                        <!-- 跟进记录表格 -->
+                        <div class="table-container">
+                            <table id="followUpTable" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>用户ID</th>
+                                        <th>地域</th>
+                                        <th>注册时间</th>
+                                        <th>最近登录时间</th>
+                                        <th>所属业务员</th>
+                                        <th>顾问姓名</th>
+                                        <th>顾问ID</th>
+                                        <th>领取时间</th>
+                                        <th>推荐码</th>
+                                        <th>是否试听</th>
+                                        <th>是否成交</th>
+                                        <th>员工沟通记录</th>
+                                        <th>分析结果</th>
+                                        <th>状态</th>
+                                        <th>用户问题</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 顾问维度统计 -->
+                    <div id="staffStatistics" class="sub-tab-content">
+                        <div class="table-container">
+                            <table id="staffStatisticsTable" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">顾问姓名</th>
+                                        <th colspan="5">用户问题-否</th>
+                                        <th colspan="3">用户问题-是</th>
+                                        <th rowspan="2">总计</th>
+                                    </tr>
+                                    <tr>
+                                        <th>N-已联系上</th>
+                                        <th>N-未联系上</th>
+                                        <th>Y</th>
+                                        <th>未沟通</th>
+                                        <th>否汇总</th>
+                                        <th>N-已联系上</th>
+                                        <th>Y</th>
+                                        <th>是汇总</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 推荐码维度统计 -->
+                    <div id="salesmanStatistics" class="sub-tab-content">
+                        <div class="table-container">
+                            <table id="salesmanStatisticsTable" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">推荐码</th>
+                                        <th colspan="5">用户问题-否</th>
+                                        <th colspan="3">用户问题-是</th>
+                                        <th rowspan="2">总计</th>
+                                    </tr>
+                                    <tr>
+                                        <th>N-已联系上</th>
+                                        <th>N-未联系上</th>
+                                        <th>Y</th>
+                                        <th>未沟通</th>
+                                        <th>否汇总</th>
+                                        <th>N-已联系上</th>
+                                        <th>Y</th>
+                                        <th>是汇总</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2063,6 +2127,34 @@
             await exportFollowUpToExcel();
         });
         
+        // 绑定子Tab切换事件
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为跟进记录查询的子Tab添加切换事件
+            const followUpResult = document.getElementById('followUpResult');
+            if (followUpResult) {
+                followUpResult.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('sub-tab-button')) {
+                        const tabName = e.target.getAttribute('data-tab');
+                        
+                        // 更新按钮状态
+                        followUpResult.querySelectorAll('.sub-tab-button').forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        e.target.classList.add('active');
+                        
+                        // 更新内容显示
+                        followUpResult.querySelectorAll('.sub-tab-content').forEach(content => {
+                            content.classList.remove('active');
+                        });
+                        const contentElement = document.getElementById(tabName);
+                        if (contentElement) {
+                            contentElement.classList.add('active');
+                        }
+                    }
+                });
+            }
+        });
+        
         // 查询公海池跟进记录
         async function queryFollowUpRecords() {
             const queryBtn = document.getElementById('queryFollowUpBtn');
@@ -2502,6 +2594,263 @@
             
             // 渲染当前页
             await renderCurrentPage();
+            
+            // 生成统计数据
+            generateStatistics(data);
+        }
+        
+        // 生成统计数据
+        function generateStatistics(data) {
+            // 顾问维度统计
+            const staffStats = {};
+            // 推荐码维度统计
+            const salesmanStats = {};
+            
+            // 初始化统计对象
+            function initStats() {
+                return {
+                    noIssue: {
+                        'N-已联系上': 0,
+                        'N-未联系上': 0,
+                        'Y': 0,
+                        '未沟通': 0,
+                        total: 0
+                    },
+                    hasIssue: {
+                        'N-已联系上': 0,
+                        'Y': 0,
+                        total: 0
+                    },
+                    total: 0
+                };
+            }
+            
+            // 处理每条数据
+            data.forEach(item => {
+                // 分析沟通记录
+                let analysisResult;
+                try {
+                    analysisResult = analyzeCommunicationRecord(item.followRecord || '', item.getTrialClass, item.isDeal);
+                } catch (error) {
+                    console.error('分析沟通记录错误:', error);
+                    analysisResult = {
+                        result: '分析失败',
+                        status: 'N',
+                        userIssue: false
+                    };
+                }
+                
+                // 获取状态
+                let status = analysisResult.status;
+                if ((!item.followRecord || item.followRecord === '-') && (item.getTrialClass === 1 || item.getTrialClass === 2 || item.isDeal === 1)) {
+                    status = '未更新系统状态';
+                } else if (!item.followRecord || item.followRecord === '-') {
+                    status = '未沟通';
+                }
+                
+                // 顾问维度统计
+                const staffName = item.staffName || '未知';
+                if (!staffStats[staffName]) {
+                    staffStats[staffName] = initStats();
+                }
+                
+                // 推荐码维度统计
+                const salesmanTalkId = item.teachCourse || '未知';
+                if (!salesmanStats[salesmanTalkId]) {
+                    salesmanStats[salesmanTalkId] = initStats();
+                }
+                
+                // 统计用户问题
+                if (analysisResult.userIssue) {
+                    // 有用户问题
+                    if (status === 'N-已联系上' || status === 'N-未联系上') {
+                        staffStats[staffName].hasIssue['N-已联系上']++;
+                        salesmanStats[salesmanTalkId].hasIssue['N-已联系上']++;
+                    } else if (status === 'Y') {
+                        staffStats[staffName].hasIssue['Y']++;
+                        salesmanStats[salesmanTalkId].hasIssue['Y']++;
+                    }
+                    staffStats[staffName].hasIssue.total++;
+                    salesmanStats[salesmanTalkId].hasIssue.total++;
+                } else {
+                    // 无用户问题
+                    if (status === 'N-已联系上') {
+                        staffStats[staffName].noIssue['N-已联系上']++;
+                        salesmanStats[salesmanTalkId].noIssue['N-已联系上']++;
+                    } else if (status === 'N-未联系上') {
+                        staffStats[staffName].noIssue['N-未联系上']++;
+                        salesmanStats[salesmanTalkId].noIssue['N-未联系上']++;
+                    } else if (status === 'Y') {
+                        staffStats[staffName].noIssue['Y']++;
+                        salesmanStats[salesmanTalkId].noIssue['Y']++;
+                    } else if (status === '未沟通' || status === '未更新系统状态') {
+                        staffStats[staffName].noIssue['未沟通']++;
+                        salesmanStats[salesmanTalkId].noIssue['未沟通']++;
+                    }
+                    staffStats[staffName].noIssue.total++;
+                    salesmanStats[salesmanTalkId].noIssue.total++;
+                }
+                
+                // 总计
+                staffStats[staffName].total++;
+                salesmanStats[salesmanTalkId].total++;
+            });
+            
+            // 渲染顾问维度统计表格
+            renderStaffStatistics(staffStats);
+            
+            // 渲染推荐码维度统计表格
+            renderSalesmanStatistics(salesmanStats);
+        }
+        
+        // 渲染顾问维度统计表格
+        function renderStaffStatistics(stats) {
+            const table = document.getElementById('staffStatisticsTable').querySelector('tbody');
+            table.innerHTML = '';
+            
+            // 排序顾问
+            const sortedStaffs = Object.keys(stats).sort();
+            
+            // 总计
+            let totalStats = {
+                noIssue: {
+                    'N-已联系上': 0,
+                    'N-未联系上': 0,
+                    'Y': 0,
+                    '未沟通': 0,
+                    total: 0
+                },
+                hasIssue: {
+                    'N-已联系上': 0,
+                    'Y': 0,
+                    total: 0
+                },
+                total: 0
+            };
+            
+            // 渲染每一行
+            sortedStaffs.forEach(staffName => {
+                const staffStat = stats[staffName];
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${staffName}</td>
+                    <td>${staffStat.noIssue['N-已联系上']}</td>
+                    <td>${staffStat.noIssue['N-未联系上']}</td>
+                    <td>${staffStat.noIssue['Y']}</td>
+                    <td>${staffStat.noIssue['未沟通']}</td>
+                    <td>${staffStat.noIssue.total}</td>
+                    <td>${staffStat.hasIssue['N-已联系上']}</td>
+                    <td>${staffStat.hasIssue['Y']}</td>
+                    <td>${staffStat.hasIssue.total}</td>
+                    <td>${staffStat.total}</td>
+                `;
+                table.appendChild(row);
+                
+                // 累加总计
+                totalStats.noIssue['N-已联系上'] += staffStat.noIssue['N-已联系上'];
+                totalStats.noIssue['N-未联系上'] += staffStat.noIssue['N-未联系上'];
+                totalStats.noIssue['Y'] += staffStat.noIssue['Y'];
+                totalStats.noIssue['未沟通'] += staffStat.noIssue['未沟通'];
+                totalStats.noIssue.total += staffStat.noIssue.total;
+                totalStats.hasIssue['N-已联系上'] += staffStat.hasIssue['N-已联系上'];
+                totalStats.hasIssue['Y'] += staffStat.hasIssue['Y'];
+                totalStats.hasIssue.total += staffStat.hasIssue.total;
+                totalStats.total += staffStat.total;
+            });
+            
+            // 渲染总计行
+            const totalRow = document.createElement('tr');
+            totalRow.style.fontWeight = 'bold';
+            totalRow.innerHTML = `
+                <td>总计</td>
+                <td>${totalStats.noIssue['N-已联系上']}</td>
+                <td>${totalStats.noIssue['N-未联系上']}</td>
+                <td>${totalStats.noIssue['Y']}</td>
+                <td>${totalStats.noIssue['未沟通']}</td>
+                <td>${totalStats.noIssue.total}</td>
+                <td>${totalStats.hasIssue['N-已联系上']}</td>
+                <td>${totalStats.hasIssue['Y']}</td>
+                <td>${totalStats.hasIssue.total}</td>
+                <td>${totalStats.total}</td>
+            `;
+            table.appendChild(totalRow);
+        }
+        
+        // 渲染推荐码维度统计表格
+        function renderSalesmanStatistics(stats) {
+            const table = document.getElementById('salesmanStatisticsTable').querySelector('tbody');
+            table.innerHTML = '';
+            
+            // 按总计列降序排序推荐码
+            const sortedSalesmans = Object.keys(stats).sort((a, b) => {
+                return stats[b].total - stats[a].total;
+            });
+            
+            // 总计
+            let totalStats = {
+                noIssue: {
+                    'N-已联系上': 0,
+                    'N-未联系上': 0,
+                    'Y': 0,
+                    '未沟通': 0,
+                    total: 0
+                },
+                hasIssue: {
+                    'N-已联系上': 0,
+                    'Y': 0,
+                    total: 0
+                },
+                total: 0
+            };
+            
+            // 渲染每一行
+            sortedSalesmans.forEach(salesmanTalkId => {
+                const salesmanStat = stats[salesmanTalkId];
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${salesmanTalkId}</td>
+                    <td>${salesmanStat.noIssue['N-已联系上']}</td>
+                    <td>${salesmanStat.noIssue['N-未联系上']}</td>
+                    <td>${salesmanStat.noIssue['Y']}</td>
+                    <td>${salesmanStat.noIssue['未沟通']}</td>
+                    <td>${salesmanStat.noIssue.total}</td>
+                    <td>${salesmanStat.hasIssue['N-已联系上']}</td>
+                    <td>${salesmanStat.hasIssue['Y']}</td>
+                    <td>${salesmanStat.hasIssue.total}</td>
+                    <td>${salesmanStat.total}</td>
+                `;
+                table.appendChild(row);
+                
+                // 累加总计
+                totalStats.noIssue['N-已联系上'] += salesmanStat.noIssue['N-已联系上'];
+                totalStats.noIssue['N-未联系上'] += salesmanStat.noIssue['N-未联系上'];
+                totalStats.noIssue['Y'] += salesmanStat.noIssue['Y'];
+                totalStats.noIssue['未沟通'] += salesmanStat.noIssue['未沟通'];
+                totalStats.noIssue.total += salesmanStat.noIssue.total;
+                totalStats.hasIssue['N-已联系上'] += salesmanStat.hasIssue['N-已联系上'];
+                totalStats.hasIssue['Y'] += salesmanStat.hasIssue['Y'];
+                totalStats.hasIssue.total += salesmanStat.hasIssue.total;
+                totalStats.total += salesmanStat.total;
+            });
+            
+            // 渲染总计行
+            const totalRow = document.createElement('tr');
+            totalRow.style.fontWeight = 'bold';
+            totalRow.innerHTML = `
+                <td>总计</td>
+                <td>${totalStats.noIssue['N-已联系上']}</td>
+                <td>${totalStats.noIssue['N-未联系上']}</td>
+                <td>${totalStats.noIssue['Y']}</td>
+                <td>${totalStats.noIssue['未沟通']}</td>
+                <td>${totalStats.noIssue.total}</td>
+                <td>${totalStats.hasIssue['N-已联系上']}</td>
+                <td>${totalStats.hasIssue['Y']}</td>
+                <td>${totalStats.hasIssue.total}</td>
+                <td>${totalStats.total}</td>
+            `;
+            table.appendChild(totalRow);
         }
         
         // 渲染当前页
@@ -3133,6 +3482,281 @@
                         userIssue: record.userIssue
                     });
                 });
+                
+                // 添加顾问维度统计表sheet
+                const staffStatsSheet = workbook.addWorksheet('顾问维度统计');
+                
+                // 添加标题行
+                staffStatsSheet.addRow(['', '用户问题-否', '', '', '', '', '用户问题-是', '', '', '']);
+                staffStatsSheet.getRow(1).getCell(2).font = { bold: true, color: { argb: 'FF0000' } };
+                staffStatsSheet.getRow(1).getCell(7).font = { bold: true, color: { argb: 'FF0000' } };
+                staffStatsSheet.mergeCells('B1:F1');
+                staffStatsSheet.mergeCells('G1:I1');
+                
+                // 添加表头行
+                staffStatsSheet.addRow(['顾问姓名', 'N-已联系上', 'N-未联系上', 'Y', '未沟通', '否汇总', 'N-已联系上', 'Y', '是汇总', '总计']);
+                
+                // 设置列宽
+                staffStatsSheet.getColumn(1).width = 20;
+                staffStatsSheet.getColumn(2).width = 15;
+                staffStatsSheet.getColumn(3).width = 15;
+                staffStatsSheet.getColumn(4).width = 10;
+                staffStatsSheet.getColumn(5).width = 10;
+                staffStatsSheet.getColumn(6).width = 10;
+                staffStatsSheet.getColumn(7).width = 15;
+                staffStatsSheet.getColumn(8).width = 10;
+                staffStatsSheet.getColumn(9).width = 10;
+                staffStatsSheet.getColumn(10).width = 10;
+                
+                // 添加推荐码维度统计表sheet
+                const salesmanStatsSheet = workbook.addWorksheet('推荐码维度统计');
+                
+                // 添加标题行
+                salesmanStatsSheet.addRow(['', '用户问题-否', '', '', '', '', '用户问题-是', '', '', '']);
+                salesmanStatsSheet.getRow(1).getCell(2).font = { bold: true, color: { argb: 'FF0000' } };
+                salesmanStatsSheet.getRow(1).getCell(7).font = { bold: true, color: { argb: 'FF0000' } };
+                salesmanStatsSheet.mergeCells('B1:F1');
+                salesmanStatsSheet.mergeCells('G1:I1');
+                
+                // 添加表头行
+                salesmanStatsSheet.addRow(['推荐码', 'N-已联系上', 'N-未联系上', 'Y', '未沟通', '否汇总', 'N-已联系上', 'Y', '是汇总', '总计']);
+                
+                // 设置列宽
+                salesmanStatsSheet.getColumn(1).width = 30;
+                salesmanStatsSheet.getColumn(2).width = 15;
+                salesmanStatsSheet.getColumn(3).width = 15;
+                salesmanStatsSheet.getColumn(4).width = 10;
+                salesmanStatsSheet.getColumn(5).width = 10;
+                salesmanStatsSheet.getColumn(6).width = 10;
+                salesmanStatsSheet.getColumn(7).width = 15;
+                salesmanStatsSheet.getColumn(8).width = 10;
+                salesmanStatsSheet.getColumn(9).width = 10;
+                salesmanStatsSheet.getColumn(10).width = 10;
+                
+                // 生成统计数据
+                function generateExportStatistics(data) {
+                    // 顾问维度统计
+                    const staffStats = {};
+                    // 推荐码维度统计
+                    const salesmanStats = {};
+                    
+                    // 初始化统计对象
+                    function initStats() {
+                        return {
+                            noIssue: {
+                                'N-已联系上': 0,
+                                'N-未联系上': 0,
+                                'Y': 0,
+                                '未沟通': 0,
+                                total: 0
+                            },
+                            hasIssue: {
+                                'N-已联系上': 0,
+                                'Y': 0,
+                                total: 0
+                            },
+                            total: 0
+                        };
+                    }
+                    
+                    // 处理每条数据
+                    data.forEach(item => {
+                        // 分析沟通记录
+                        let analysisResult;
+                        try {
+                            analysisResult = analyzeCommunicationRecord(item.followRecord || '', item.getTrialClass, item.isDeal);
+                        } catch (error) {
+                            console.error('分析沟通记录错误:', error);
+                            analysisResult = {
+                                result: '分析失败',
+                                status: 'N',
+                                userIssue: false
+                            };
+                        }
+                        
+                        // 获取状态
+                        let status = analysisResult.status;
+                        if ((!item.followRecord || item.followRecord === '-') && (item.getTrialClass === 1 || item.getTrialClass === 2 || item.isDeal === 1)) {
+                            status = '未更新系统状态';
+                        } else if (!item.followRecord || item.followRecord === '-') {
+                            status = '未沟通';
+                        }
+                        
+                        // 顾问维度统计
+                        const staffName = item.staffName || '未知';
+                        if (!staffStats[staffName]) {
+                            staffStats[staffName] = initStats();
+                        }
+                        
+                        // 推荐码维度统计
+                        const salesmanTalkId = item.teachCourse || '未知';
+                        if (!salesmanStats[salesmanTalkId]) {
+                            salesmanStats[salesmanTalkId] = initStats();
+                        }
+                        
+                        // 统计用户问题
+                        if (analysisResult.userIssue) {
+                            // 有用户问题
+                            if (status === 'N-已联系上' || status === 'N-未联系上') {
+                                staffStats[staffName].hasIssue['N-已联系上']++;
+                                salesmanStats[salesmanTalkId].hasIssue['N-已联系上']++;
+                            } else if (status === 'Y') {
+                                staffStats[staffName].hasIssue['Y']++;
+                                salesmanStats[salesmanTalkId].hasIssue['Y']++;
+                            }
+                            staffStats[staffName].hasIssue.total++;
+                            salesmanStats[salesmanTalkId].hasIssue.total++;
+                        } else {
+                            // 无用户问题
+                            if (status === 'N-已联系上') {
+                                staffStats[staffName].noIssue['N-已联系上']++;
+                                salesmanStats[salesmanTalkId].noIssue['N-已联系上']++;
+                            } else if (status === 'N-未联系上') {
+                                staffStats[staffName].noIssue['N-未联系上']++;
+                                salesmanStats[salesmanTalkId].noIssue['N-未联系上']++;
+                            } else if (status === 'Y') {
+                                staffStats[staffName].noIssue['Y']++;
+                                salesmanStats[salesmanTalkId].noIssue['Y']++;
+                            } else if (status === '未沟通' || status === '未更新系统状态') {
+                                staffStats[staffName].noIssue['未沟通']++;
+                                salesmanStats[salesmanTalkId].noIssue['未沟通']++;
+                            }
+                            staffStats[staffName].noIssue.total++;
+                            salesmanStats[salesmanTalkId].noIssue.total++;
+                        }
+                        
+                        // 总计
+                        staffStats[staffName].total++;
+                        salesmanStats[salesmanTalkId].total++;
+                    });
+                    
+                    return { staffStats, salesmanStats };
+                }
+                
+                // 生成统计数据
+                const { staffStats, salesmanStats } = generateExportStatistics(data);
+                
+                // 填充顾问维度统计数据
+                const sortedStaffs = Object.keys(staffStats).sort();
+                let staffTotalStats = {
+                    noIssue: {
+                        'N-已联系上': 0,
+                        'N-未联系上': 0,
+                        'Y': 0,
+                        '未沟通': 0,
+                        total: 0
+                    },
+                    hasIssue: {
+                        'N-已联系上': 0,
+                        'Y': 0,
+                        total: 0
+                    },
+                    total: 0
+                };
+                
+                sortedStaffs.forEach(staffName => {
+                    const staffStat = staffStats[staffName];
+                    staffStatsSheet.addRow([
+                        staffName,
+                        staffStat.noIssue['N-已联系上'],
+                        staffStat.noIssue['N-未联系上'],
+                        staffStat.noIssue['Y'],
+                        staffStat.noIssue['未沟通'],
+                        staffStat.noIssue.total,
+                        staffStat.hasIssue['N-已联系上'],
+                        staffStat.hasIssue['Y'],
+                        staffStat.hasIssue.total,
+                        staffStat.total
+                    ]);
+                    
+                    // 累加总计
+                    staffTotalStats.noIssue['N-已联系上'] += staffStat.noIssue['N-已联系上'];
+                    staffTotalStats.noIssue['N-未联系上'] += staffStat.noIssue['N-未联系上'];
+                    staffTotalStats.noIssue['Y'] += staffStat.noIssue['Y'];
+                    staffTotalStats.noIssue['未沟通'] += staffStat.noIssue['未沟通'];
+                    staffTotalStats.noIssue.total += staffStat.noIssue.total;
+                    staffTotalStats.hasIssue['N-已联系上'] += staffStat.hasIssue['N-已联系上'];
+                    staffTotalStats.hasIssue['Y'] += staffStat.hasIssue['Y'];
+                    staffTotalStats.hasIssue.total += staffStat.hasIssue.total;
+                    staffTotalStats.total += staffStat.total;
+                });
+                
+                // 添加顾问总计行
+                const totalRow = staffStatsSheet.addRow([
+                    '总计',
+                    staffTotalStats.noIssue['N-已联系上'],
+                    staffTotalStats.noIssue['N-未联系上'],
+                    staffTotalStats.noIssue['Y'],
+                    staffTotalStats.noIssue['未沟通'],
+                    staffTotalStats.noIssue.total,
+                    staffTotalStats.hasIssue['N-已联系上'],
+                    staffTotalStats.hasIssue['Y'],
+                    staffTotalStats.hasIssue.total,
+                    staffTotalStats.total
+                ]);
+                totalRow.font = { bold: true };
+                
+                // 按总计列降序排序推荐码
+                const sortedSalesmans = Object.keys(salesmanStats).sort((a, b) => {
+                    return salesmanStats[b].total - salesmanStats[a].total;
+                });
+                let salesmanTotalStats = {
+                    noIssue: {
+                        'N-已联系上': 0,
+                        'N-未联系上': 0,
+                        'Y': 0,
+                        '未沟通': 0,
+                        total: 0
+                    },
+                    hasIssue: {
+                        'N-已联系上': 0,
+                        'Y': 0,
+                        total: 0
+                    },
+                    total: 0
+                };
+                
+                sortedSalesmans.forEach(salesmanTalkId => {
+                    const salesmanStat = salesmanStats[salesmanTalkId];
+                    salesmanStatsSheet.addRow([
+                        salesmanTalkId,
+                        salesmanStat.noIssue['N-已联系上'],
+                        salesmanStat.noIssue['N-未联系上'],
+                        salesmanStat.noIssue['Y'],
+                        salesmanStat.noIssue['未沟通'],
+                        salesmanStat.noIssue.total,
+                        salesmanStat.hasIssue['N-已联系上'],
+                        salesmanStat.hasIssue['Y'],
+                        salesmanStat.hasIssue.total,
+                        salesmanStat.total
+                    ]);
+                    
+                    // 累加总计
+                    salesmanTotalStats.noIssue['N-已联系上'] += salesmanStat.noIssue['N-已联系上'];
+                    salesmanTotalStats.noIssue['N-未联系上'] += salesmanStat.noIssue['N-未联系上'];
+                    salesmanTotalStats.noIssue['Y'] += salesmanStat.noIssue['Y'];
+                    salesmanTotalStats.noIssue['未沟通'] += salesmanStat.noIssue['未沟通'];
+                    salesmanTotalStats.noIssue.total += salesmanStat.noIssue.total;
+                    salesmanTotalStats.hasIssue['N-已联系上'] += salesmanStat.hasIssue['N-已联系上'];
+                    salesmanTotalStats.hasIssue['Y'] += salesmanStat.hasIssue['Y'];
+                    salesmanTotalStats.hasIssue.total += salesmanStat.hasIssue.total;
+                    salesmanTotalStats.total += salesmanStat.total;
+                });
+                
+                // 添加推荐码总计行
+                const salesmanTotalRow = salesmanStatsSheet.addRow([
+                    '总计',
+                    salesmanTotalStats.noIssue['N-已联系上'],
+                    salesmanTotalStats.noIssue['N-未联系上'],
+                    salesmanTotalStats.noIssue['Y'],
+                    salesmanTotalStats.noIssue['未沟通'],
+                    salesmanTotalStats.noIssue.total,
+                    salesmanTotalStats.hasIssue['N-已联系上'],
+                    salesmanTotalStats.hasIssue['Y'],
+                    salesmanTotalStats.hasIssue.total,
+                    salesmanTotalStats.total
+                ]);
+                salesmanTotalRow.font = { bold: true };
                 
                 // 生成Excel文件
                 const buffer = await workbook.xlsx.writeBuffer();
