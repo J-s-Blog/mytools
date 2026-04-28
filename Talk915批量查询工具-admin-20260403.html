@@ -1462,7 +1462,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                             <div class="section-title">已导入的数据</div>
                             <div style="display: flex; align-items: center; gap: 5px;">
-                                <input type="text" id="manualTeachCourseInput" placeholder="输入员工ID查询" style="padding: 5px; width: 150px;" />
+                                <input type="text" id="manualTeachCourseInput" placeholder="输入推荐码查询" style="padding: 5px; width: 150px;" />
                                 <button onclick="manualTeachCourseQuery()" class="secondary-btn" style="padding: 5px 10px;">查询</button>
                             </div>
                         </div>
@@ -4718,18 +4718,18 @@
             });
         }
         
-        // 手动输入员工ID查询
+        // 手动输入推荐码查询
         function manualTeachCourseQuery() {
             const input = document.getElementById('manualTeachCourseInput');
-            const empID = input.value.trim();
+            const teachCode = input.value.trim();
             
-            if (!empID) {
-                showTeachCourseStatus('请输入员工ID', 'error');
+            if (!teachCode) {
+                showTeachCourseStatus('请输入推荐码', 'error');
                 return;
             }
             
-            // 查找对应的员工索引
-            const index = parsedData.findIndex(item => item.id === empID);
+            // 查找对应的推荐码索引
+            const index = parsedData.findIndex(item => item.teachCode === teachCode);
             
             if (index !== -1) {
                 // 如果在导入的数据中找到，调用查询单个推荐码的函数
@@ -4737,8 +4737,8 @@
             } else {
                 // 如果没有找到，创建临时推荐码对象进行查询
                 const item = {
-                    id: empID,
-                    teachCode: '',
+                    id: '',
+                    teachCode: teachCode,
                     userName: '未知',
                     staffId: ''
                 };
