@@ -259,8 +259,6 @@
             padding: 5px 15px;
             font-size: 14px;
         }
-            white-space: normal;
-        }
         
         .data-table th {
             background-color: #f2f2f2;
@@ -466,6 +464,7 @@
                 <button class="tab-button" data-tab="seaPool">公海池数据看板</button>
                 <button class="tab-button" data-tab="followUpRecord">公海池跟进记录查询</button>
                 <button class="tab-button" data-tab="specialHold">保有量配置</button>
+                <button class="tab-button" data-tab="rechargeOrder">充值订单明细</button>
             </div>
             
             <!-- 登录Tab -->
@@ -783,7 +782,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2">顾问姓名</th>
-                                        <th colspan="5">用户问题-否</th>
+                                        <th colspan="6">用户问题-否</th>
                                         <th colspan="3">用户问题-是</th>
                                         <th rowspan="2">总计</th>
                                     </tr>
@@ -792,6 +791,7 @@
                                         <th>N-未联系上</th>
                                         <th>Y</th>
                                         <th>未沟通</th>
+                                        <th>未更新系统状态</th>
                                         <th>否汇总</th>
                                         <th>N-已联系上</th>
                                         <th>Y</th>
@@ -810,7 +810,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2">推荐码</th>
-                                        <th colspan="5">用户问题-否</th>
+                                        <th colspan="6">用户问题-否</th>
                                         <th colspan="3">用户问题-是</th>
                                         <th rowspan="2">总计</th>
                                     </tr>
@@ -819,6 +819,7 @@
                                         <th>N-未联系上</th>
                                         <th>Y</th>
                                         <th>未沟通</th>
+                                        <th>未更新系统状态</th>
                                         <th>否汇总</th>
                                         <th>N-已联系上</th>
                                         <th>Y</th>
@@ -876,7 +877,165 @@
         
         <div id="statusMessage" style="margin-top: 20px;"></div>
     </div>
-
+    
+    <!-- 充值订单明细Tab -->
+    <div id="rechargeOrder" class="tab-content">
+        <h2>充值订单明细</h2>
+        
+        <!-- 查询条件 -->
+        <div style="margin-bottom: 20px;">
+            <!-- 第一行：基本查询条件 -->
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: flex-end;">
+                <!-- 账号属性 -->
+                <div class="form-group inline" style="margin-right: 10px;">
+                    <label style="margin-bottom: 5px; display: block;">账号属性:</label>
+                    <div style="display: flex; gap: 8px;">
+                        <label><input type="checkbox" id="attrExternal" value="0"> 外部</label>
+                        <label><input type="checkbox" id="attrDirect" value="1" checked> 直销</label>
+                        <label><input type="checkbox" id="attrDaren" value="2" checked> 达人</label>
+                        <label><input type="checkbox" id="attr托管" value="3" checked> 托管</label>
+                    </div>
+                </div>
+                
+                <!-- 用户手机 -->
+                <div class="form-group inline">
+                    <label for="roPhone" style="margin-bottom: 5px; display: block;">用户手机:</label>
+                    <input type="text" id="roPhone" placeholder="手机" style="width: 120px;">
+                </div>
+                
+                <!-- 用户编号 -->
+                <div class="form-group inline">
+                    <label for="roUserId" style="margin-bottom: 5px; display: block;">用户编号:</label>
+                    <input type="text" id="roUserId" placeholder="用户ID" style="width: 100px;">
+                </div>
+                
+                <!-- 推荐码 -->
+                <div class="form-group inline">
+                    <label for="roTeachCourse" style="margin-bottom: 5px; display: block;">推荐码:</label>
+                    <input type="text" id="roTeachCourse" placeholder="推荐码" style="width: 120px;">
+                </div>
+                
+                <!-- 业务员 -->
+                <div class="form-group inline">
+                    <label for="roSalesman" style="margin-bottom: 5px; display: block;">业务员:</label>
+                    <input type="text" id="roSalesman" placeholder="业务员" style="width: 100px;">
+                </div>
+                
+                <!-- 课程顾问ID -->
+                <div class="form-group inline">
+                    <label for="roStaffId" style="margin-bottom: 5px; display: block;">顾问ID:</label>
+                    <input type="text" id="roStaffId" placeholder="顾问ID" style="width: 100px;">
+                </div>
+                
+                <!-- 经销商 -->
+                <div class="form-group inline">
+                    <label for="roAgentTalkId" style="margin-bottom: 5px; display: block;">经销商:</label>
+                    <input type="text" id="roAgentTalkId" placeholder="经销商" style="width: 100px;">
+                </div>
+                
+                <!-- 订单号 -->
+                <div class="form-group inline">
+                    <label for="roOrderId" style="margin-bottom: 5px; display: block;">订单号:</label>
+                    <input type="text" id="roOrderId" placeholder="订单号" style="width: 120px;">
+                </div>
+                
+                <!-- 订单状态 -->
+                <div class="form-group inline">
+                    <label style="margin-bottom: 5px; display: block;">订单状态:</label>
+                    <select id="roOrderStatus" style="width: 100px;">
+                        <option value="-1">全部</option>
+                        <option value="0" selected>已支付</option>
+                        <option value="1">未支付</option>
+                        <option value="2">已取消</option>
+                    </select>
+                </div>
+                
+                <!-- 是否分佣 -->
+                <div class="form-group inline">
+                    <label style="margin-bottom: 5px; display: block;">是否分佣:</label>
+                    <select id="roJoinCommission" style="width: 100px;">
+                        <option value="">全部</option>
+                        <option value="0">不分佣</option>
+                        <option value="1">分佣</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 第二行：日期条件和按钮 -->
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+                <!-- 下单日期 -->
+                <div class="form-group inline">
+                    <label style="margin-bottom: 5px; display: block;">下单日期:</label>
+                    <input type="date" id="roBeginDate" style="width: 120px;">
+                    <span style="margin: 0 5px;">至</span>
+                    <input type="date" id="roEndDate" style="width: 120px;">
+                </div>
+                
+                <!-- 支付日期 -->
+                <div class="form-group inline">
+                    <label style="margin-bottom: 5px; display: block;">支付日期:</label>
+                    <input type="date" id="roPayBeginDate" style="width: 120px;" value="">
+                    <span style="margin: 0 5px;">至</span>
+                    <input type="date" id="roPayEndDate" style="width: 120px;" value="">
+                </div>
+                
+                <!-- 退款时间 -->
+                <div class="form-group inline">
+                    <label style="margin-bottom: 5px; display: block;">退款时间:</label>
+                    <input type="date" id="roRefundStartTime" style="width: 120px;">
+                    <span style="margin: 0 5px;">至</span>
+                    <input type="date" id="roRefundEndTime" style="width: 120px;">
+                </div>
+                
+                <!-- 查询按钮 -->
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" id="queryRechargeOrderBtn" style="padding: 6px 20px;">查询</button>
+                    <button type="button" id="exportRechargeOrderBtn" style="display: none; padding: 6px 20px;">导出到Excel</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 汇总信息 -->
+        <div id="rechargeSummary" style="display: none; margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                <div><strong>共有记录:</strong> <span id="roTotal">0</span> 条</div>
+                <div><strong>已支付金额:</strong> <span id="roPayTotalMoney">0.00</span> 元</div>
+                <div><strong>待支付金额:</strong> <span id="roUnPayTotalMoney">0.00</span> 元</div>
+                <div><strong>退款金额:</strong> <span id="roRefundTotalMoney">0.00</span> 元</div>
+                <div><strong>收益:</strong> <span id="roTotalEarn">0.00</span> 元</div>
+                <div><strong>手续费:</strong> <span id="roChargeFee">0.00</span> 元</div>
+                <div><strong>服务费:</strong> <span id="roServerFee">0.00</span> 元</div>
+            </div>
+        </div>
+        
+        <!-- 结果表格 -->
+        <div id="rechargeOrderResult" style="display: none;">
+            <div class="table-container">
+                <table id="rechargeOrderTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>用户编号</th>
+                            <th>套餐名</th>
+                            <th>订单号</th>
+                            <th>支付金额</th>
+                            <th>支付时间</th>
+                            <th>支付状态</th>
+                            <th>经销商</th>
+                            <th>业务员</th>
+                            <th>顾问姓名</th>
+                            <th>顾问ID</th>
+                            <th>推荐码</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="rechargeOrderStatus" style="margin-top: 20px;"></div>
+    </div>
+    
     <!-- 导入模态框 -->
     <div id="importModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
         <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1200px; max-height: 80vh; overflow-y: auto;">
@@ -2589,18 +2748,67 @@
             followUpFullData = data;
             currentPage = 1;
             
+            // 预处理所有数据，添加status和userIssue字段并保存到缓存
+            await processAllDataStatus(data);
+            
             // 显示分页控件
             renderPagination();
             
             // 渲染当前页
             await renderCurrentPage();
             
-            // 生成统计数据
+            // 生成统计数据（使用预处理后的数据）
             generateStatistics(data);
+        }
+        
+        // 预处理所有数据，计算status和userIssue字段
+        async function processAllDataStatus(data) {
+            data.forEach(item => {
+                let followRecord = item.followRecord || '';
+                let status = '';
+                let userIssue = false;
+                
+                if (item.userId) {
+                    const analysis = analyzeCommunicationRecord(followRecord, item.getTrialClass, item.isDeal);
+                    const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
+                    const isDeal = item.isDeal === 1;
+                    if ((!followRecord || followRecord === '-') && (isTrialClass || isDeal)) {
+                        status = '未更新系统状态';
+                        userIssue = false;
+                    } else {
+                        status = analysis.status;
+                        userIssue = analysis.userIssue;
+                    }
+                } else {
+                    const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
+                    const isDeal = item.isDeal === 1;
+                    if (isTrialClass || isDeal) {
+                        status = '未更新系统状态';
+                    } else {
+                        status = '未沟通';
+                    }
+                    userIssue = false;
+                }
+                
+                // 保存到数据对象中
+                item.status = status;
+                item.userIssue = userIssue ? '是' : '否';
+            });
+            
+            // 将包含状态和用户问题的数据保存到IndexedDB
+            try {
+                await storeDataToIndexedDB(data);
+                console.log('包含状态和用户问题的数据已保存到IndexedDB');
+            } catch (error) {
+                console.error('保存状态和用户问题数据到IndexedDB失败:', error);
+            }
         }
         
         // 生成统计数据
         function generateStatistics(data) {
+            // 直接使用预处理后的数据进行统计（已包含status和userIssue字段）
+            const statsData = data;
+            
             // 顾问维度统计
             const staffStats = {};
             // 推荐码维度统计
@@ -2614,6 +2822,7 @@
                         'N-未联系上': 0,
                         'Y': 0,
                         '未沟通': 0,
+                        '未更新系统状态': 0,
                         total: 0
                     },
                     hasIssue: {
@@ -2626,27 +2835,10 @@
             }
             
             // 处理每条数据
-            data.forEach(item => {
-                // 分析沟通记录
-                let analysisResult;
-                try {
-                    analysisResult = analyzeCommunicationRecord(item.followRecord || '', item.getTrialClass, item.isDeal);
-                } catch (error) {
-                    console.error('分析沟通记录错误:', error);
-                    analysisResult = {
-                        result: '分析失败',
-                        status: 'N',
-                        userIssue: false
-                    };
-                }
-                
-                // 获取状态
-                let status = analysisResult.status;
-                if ((!item.followRecord || item.followRecord === '-') && (item.getTrialClass === 1 || item.getTrialClass === 2 || item.isDeal === 1)) {
-                    status = '未更新系统状态';
-                } else if (!item.followRecord || item.followRecord === '-') {
-                    status = '未沟通';
-                }
+            statsData.forEach(item => {
+                // 直接使用预处理后的数据中已有的状态和用户问题字段
+                const status = item.status || '未沟通';
+                const userIssue = item.userIssue === '是';
                 
                 // 顾问维度统计
                 const staffName = item.staffName || '未知';
@@ -2660,8 +2852,8 @@
                     salesmanStats[salesmanTalkId] = initStats();
                 }
                 
-                // 统计用户问题
-                if (analysisResult.userIssue) {
+                // 根据预处理后的信息统计
+                if (userIssue) {
                     // 有用户问题
                     if (status === 'N-已联系上' || status === 'N-未联系上') {
                         staffStats[staffName].hasIssue['N-已联系上']++;
@@ -2683,9 +2875,12 @@
                     } else if (status === 'Y') {
                         staffStats[staffName].noIssue['Y']++;
                         salesmanStats[salesmanTalkId].noIssue['Y']++;
-                    } else if (status === '未沟通' || status === '未更新系统状态') {
+                    } else if (status === '未沟通') {
                         staffStats[staffName].noIssue['未沟通']++;
                         salesmanStats[salesmanTalkId].noIssue['未沟通']++;
+                    } else if (status === '未更新系统状态') {
+                        staffStats[staffName].noIssue['未更新系统状态']++;
+                        salesmanStats[salesmanTalkId].noIssue['未更新系统状态']++;
                     }
                     staffStats[staffName].noIssue.total++;
                     salesmanStats[salesmanTalkId].noIssue.total++;
@@ -2718,6 +2913,7 @@
                     'N-未联系上': 0,
                     'Y': 0,
                     '未沟通': 0,
+                    '未更新系统状态': 0,
                     total: 0
                 },
                 hasIssue: {
@@ -2739,6 +2935,7 @@
                     <td>${staffStat.noIssue['N-未联系上']}</td>
                     <td>${staffStat.noIssue['Y']}</td>
                     <td>${staffStat.noIssue['未沟通']}</td>
+                    <td>${staffStat.noIssue['未更新系统状态']}</td>
                     <td>${staffStat.noIssue.total}</td>
                     <td>${staffStat.hasIssue['N-已联系上']}</td>
                     <td>${staffStat.hasIssue['Y']}</td>
@@ -2752,6 +2949,7 @@
                 totalStats.noIssue['N-未联系上'] += staffStat.noIssue['N-未联系上'];
                 totalStats.noIssue['Y'] += staffStat.noIssue['Y'];
                 totalStats.noIssue['未沟通'] += staffStat.noIssue['未沟通'];
+                totalStats.noIssue['未更新系统状态'] += staffStat.noIssue['未更新系统状态'];
                 totalStats.noIssue.total += staffStat.noIssue.total;
                 totalStats.hasIssue['N-已联系上'] += staffStat.hasIssue['N-已联系上'];
                 totalStats.hasIssue['Y'] += staffStat.hasIssue['Y'];
@@ -2768,6 +2966,7 @@
                 <td>${totalStats.noIssue['N-未联系上']}</td>
                 <td>${totalStats.noIssue['Y']}</td>
                 <td>${totalStats.noIssue['未沟通']}</td>
+                <td>${totalStats.noIssue['未更新系统状态']}</td>
                 <td>${totalStats.noIssue.total}</td>
                 <td>${totalStats.hasIssue['N-已联系上']}</td>
                 <td>${totalStats.hasIssue['Y']}</td>
@@ -2794,6 +2993,7 @@
                     'N-未联系上': 0,
                     'Y': 0,
                     '未沟通': 0,
+                    '未更新系统状态': 0,
                     total: 0
                 },
                 hasIssue: {
@@ -2815,6 +3015,7 @@
                     <td>${salesmanStat.noIssue['N-未联系上']}</td>
                     <td>${salesmanStat.noIssue['Y']}</td>
                     <td>${salesmanStat.noIssue['未沟通']}</td>
+                    <td>${salesmanStat.noIssue['未更新系统状态']}</td>
                     <td>${salesmanStat.noIssue.total}</td>
                     <td>${salesmanStat.hasIssue['N-已联系上']}</td>
                     <td>${salesmanStat.hasIssue['Y']}</td>
@@ -2828,6 +3029,7 @@
                 totalStats.noIssue['N-未联系上'] += salesmanStat.noIssue['N-未联系上'];
                 totalStats.noIssue['Y'] += salesmanStat.noIssue['Y'];
                 totalStats.noIssue['未沟通'] += salesmanStat.noIssue['未沟通'];
+                totalStats.noIssue['未更新系统状态'] += salesmanStat.noIssue['未更新系统状态'];
                 totalStats.noIssue.total += salesmanStat.noIssue.total;
                 totalStats.hasIssue['N-已联系上'] += salesmanStat.hasIssue['N-已联系上'];
                 totalStats.hasIssue['Y'] += salesmanStat.hasIssue['Y'];
@@ -2844,6 +3046,7 @@
                 <td>${totalStats.noIssue['N-未联系上']}</td>
                 <td>${totalStats.noIssue['Y']}</td>
                 <td>${totalStats.noIssue['未沟通']}</td>
+                <td>${totalStats.noIssue['未更新系统状态']}</td>
                 <td>${totalStats.noIssue.total}</td>
                 <td>${totalStats.hasIssue['N-已联系上']}</td>
                 <td>${totalStats.hasIssue['Y']}</td>
@@ -2950,19 +3153,10 @@
                                     cells[12].textContent = record || '-';
                                     
                                     try {
-                                        // 分析沟通记录
-                                    const analysisResult = analyzeCommunicationRecord(record, item.getTrialClass, item.isDeal);
-                                    // 检查是否已试课或已成交
-                                    const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
-                                    const isDeal = item.isDeal === 1;
-                                    if ((!record || record === '-') && (isTrialClass || isDeal)) {
-                                        cells[13].textContent = '无沟通记录';
-                                        cells[14].textContent = '未更新系统状态';
-                                    } else {
-                                        cells[13].textContent = analysisResult.result;
-                                        cells[14].textContent = analysisResult.status;
-                                    }
-                                    cells[15].textContent = analysisResult.userIssue ? '是' : '否';
+                                        // 使用预处理好的状态和用户问题字段
+                                        cells[13].textContent = record && record !== '-' ? analyzeCommunicationRecord(record, item.getTrialClass, item.isDeal).result : '无沟通记录';
+                                        cells[14].textContent = item.status || '未沟通';
+                                        cells[15].textContent = item.userIssue || '否';
                                     } catch (error) {
                                         console.error('分析沟通记录错误:', error);
                                         const cells = row.querySelectorAll('td');
@@ -2982,15 +3176,8 @@
                                 const cells = row.querySelectorAll('td');
                                 cells[12].textContent = '-';
                                 cells[13].textContent = '无沟通记录';
-                                // 检查是否已试课或已成交
-                                const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
-                                const isDeal = item.isDeal === 1;
-                                if (isTrialClass || isDeal) {
-                                    cells[14].textContent = '未更新系统状态';
-                                } else {
-                                    cells[14].textContent = '未沟通';
-                                }
-                                cells[15].textContent = '否';
+                                cells[14].textContent = item.status || '未沟通';
+                                cells[15].textContent = item.userIssue || '否';
                             }
                         } catch (error) {
                             console.error('处理表格行错误:', error);
@@ -3317,15 +3504,18 @@
         
         // 导出跟进记录到Excel
         async function exportFollowUpToExcel() {
-            // 从IndexedDB读取数据
-            let data;
-            try {
-                await initIndexedDB();
-                data = await getDataFromIndexedDB();
-                console.log('从IndexedDB读取数据成功');
-            } catch (error) {
-                console.error('从IndexedDB读取数据失败，使用window.followUpData:', error);
-                data = window.followUpData;
+            // 优先使用内存中的数据（已包含预处理后的状态和用户问题字段）
+            let data = window.followUpData;
+            
+            // 如果内存中没有数据，从IndexedDB读取
+            if (!data || data.length === 0) {
+                try {
+                    await initIndexedDB();
+                    data = await getDataFromIndexedDB();
+                    console.log('从IndexedDB读取数据成功');
+                } catch (error) {
+                    console.error('从IndexedDB读取数据失败:', error);
+                }
             }
             
             if (!data || data.length === 0) {
@@ -3407,35 +3597,19 @@
                     // 获取员工沟通记录（只从本地缓存获取）
                     let followRecord = item.followRecord || '';
                     let analysisResult = '';
-                    let status = '';
-                    let userIssue = false;
+                    // 直接使用本地缓存中已有的状态和用户问题字段
+                    let status = item.status || '未沟通';
+                    let userIssue = item.userIssue === '是';
                     
                     if (item.userId) {
                         // 不再从API获取，只使用本地缓存的沟通记录
-                        const analysis = analyzeCommunicationRecord(followRecord, item.getTrialClass, item.isDeal);
-                        // 检查是否已试课或已成交
-                        const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
-                        const isDeal = item.isDeal === 1;
-                        if ((!followRecord || followRecord === '-') && (isTrialClass || isDeal)) {
-                            analysisResult = '无沟通记录';
-                            status = '未更新系统状态';
-                            userIssue = false;
+                        if (followRecord && followRecord !== '-') {
+                            analysisResult = analyzeCommunicationRecord(followRecord, item.getTrialClass, item.isDeal).result;
                         } else {
-                            analysisResult = analysis.result;
-                            status = analysis.status;
-                            userIssue = analysis.userIssue;
+                            analysisResult = '无沟通记录';
                         }
                     } else {
                         analysisResult = '无沟通记录';
-                        // 检查是否已试课或已成交
-                        const isTrialClass = item.getTrialClass === 1 || item.getTrialClass === 2;
-                        const isDeal = item.isDeal === 1;
-                        if (isTrialClass || isDeal) {
-                            status = '未更新系统状态';
-                        } else {
-                            status = '未沟通';
-                        }
-                        userIssue = false;
                     }
                     
                     recordsWithFollow.push({
@@ -3487,14 +3661,14 @@
                 const staffStatsSheet = workbook.addWorksheet('顾问维度统计');
                 
                 // 添加标题行
-                staffStatsSheet.addRow(['', '用户问题-否', '', '', '', '', '用户问题-是', '', '', '']);
+                staffStatsSheet.addRow(['', '用户问题-否', '', '', '', '', '', '用户问题-是', '', '', '']);
                 staffStatsSheet.getRow(1).getCell(2).font = { bold: true, color: { argb: 'FF0000' } };
                 staffStatsSheet.getRow(1).getCell(7).font = { bold: true, color: { argb: 'FF0000' } };
-                staffStatsSheet.mergeCells('B1:F1');
-                staffStatsSheet.mergeCells('G1:I1');
+                staffStatsSheet.mergeCells('B1:G1');
+                staffStatsSheet.mergeCells('H1:J1');
                 
                 // 添加表头行
-                staffStatsSheet.addRow(['顾问姓名', 'N-已联系上', 'N-未联系上', 'Y', '未沟通', '否汇总', 'N-已联系上', 'Y', '是汇总', '总计']);
+                staffStatsSheet.addRow(['顾问姓名', 'N-已联系上', 'N-未联系上', 'Y', '未沟通', '未更新系统状态', '否汇总', 'N-已联系上', 'Y', '是汇总', '总计']);
                 
                 // 设置列宽
                 staffStatsSheet.getColumn(1).width = 20;
@@ -3502,24 +3676,25 @@
                 staffStatsSheet.getColumn(3).width = 15;
                 staffStatsSheet.getColumn(4).width = 10;
                 staffStatsSheet.getColumn(5).width = 10;
-                staffStatsSheet.getColumn(6).width = 10;
-                staffStatsSheet.getColumn(7).width = 15;
-                staffStatsSheet.getColumn(8).width = 10;
+                staffStatsSheet.getColumn(6).width = 15;
+                staffStatsSheet.getColumn(7).width = 10;
+                staffStatsSheet.getColumn(8).width = 15;
                 staffStatsSheet.getColumn(9).width = 10;
                 staffStatsSheet.getColumn(10).width = 10;
+                staffStatsSheet.getColumn(11).width = 10;
                 
                 // 添加推荐码维度统计表sheet
                 const salesmanStatsSheet = workbook.addWorksheet('推荐码维度统计');
                 
                 // 添加标题行
-                salesmanStatsSheet.addRow(['', '用户问题-否', '', '', '', '', '用户问题-是', '', '', '']);
+                salesmanStatsSheet.addRow(['', '用户问题-否', '', '', '', '', '', '用户问题-是', '', '', '']);
                 salesmanStatsSheet.getRow(1).getCell(2).font = { bold: true, color: { argb: 'FF0000' } };
                 salesmanStatsSheet.getRow(1).getCell(7).font = { bold: true, color: { argb: 'FF0000' } };
-                salesmanStatsSheet.mergeCells('B1:F1');
-                salesmanStatsSheet.mergeCells('G1:I1');
+                salesmanStatsSheet.mergeCells('B1:G1');
+                salesmanStatsSheet.mergeCells('H1:J1');
                 
                 // 添加表头行
-                salesmanStatsSheet.addRow(['推荐码', 'N-已联系上', 'N-未联系上', 'Y', '未沟通', '否汇总', 'N-已联系上', 'Y', '是汇总', '总计']);
+                salesmanStatsSheet.addRow(['推荐码', 'N-已联系上', 'N-未联系上', 'Y', '未沟通', '未更新系统状态', '否汇总', 'N-已联系上', 'Y', '是汇总', '总计']);
                 
                 // 设置列宽
                 salesmanStatsSheet.getColumn(1).width = 30;
@@ -3527,11 +3702,12 @@
                 salesmanStatsSheet.getColumn(3).width = 15;
                 salesmanStatsSheet.getColumn(4).width = 10;
                 salesmanStatsSheet.getColumn(5).width = 10;
-                salesmanStatsSheet.getColumn(6).width = 10;
-                salesmanStatsSheet.getColumn(7).width = 15;
-                salesmanStatsSheet.getColumn(8).width = 10;
+                salesmanStatsSheet.getColumn(6).width = 15;
+                salesmanStatsSheet.getColumn(7).width = 10;
+                salesmanStatsSheet.getColumn(8).width = 15;
                 salesmanStatsSheet.getColumn(9).width = 10;
                 salesmanStatsSheet.getColumn(10).width = 10;
+                salesmanStatsSheet.getColumn(11).width = 10;
                 
                 // 生成统计数据
                 function generateExportStatistics(data) {
@@ -3548,6 +3724,7 @@
                                 'N-未联系上': 0,
                                 'Y': 0,
                                 '未沟通': 0,
+                                '未更新系统状态': 0,
                                 total: 0
                             },
                             hasIssue: {
@@ -3561,26 +3738,9 @@
                     
                     // 处理每条数据
                     data.forEach(item => {
-                        // 分析沟通记录
-                        let analysisResult;
-                        try {
-                            analysisResult = analyzeCommunicationRecord(item.followRecord || '', item.getTrialClass, item.isDeal);
-                        } catch (error) {
-                            console.error('分析沟通记录错误:', error);
-                            analysisResult = {
-                                result: '分析失败',
-                                status: 'N',
-                                userIssue: false
-                            };
-                        }
-                        
-                        // 获取状态
-                        let status = analysisResult.status;
-                        if ((!item.followRecord || item.followRecord === '-') && (item.getTrialClass === 1 || item.getTrialClass === 2 || item.isDeal === 1)) {
-                            status = '未更新系统状态';
-                        } else if (!item.followRecord || item.followRecord === '-') {
-                            status = '未沟通';
-                        }
+                        // 直接使用数据中已有的状态和用户问题字段
+                        const status = item.status || '未沟通';
+                        const userIssue = item.userIssue === '是';
                         
                         // 顾问维度统计
                         const staffName = item.staffName || '未知';
@@ -3594,8 +3754,8 @@
                             salesmanStats[salesmanTalkId] = initStats();
                         }
                         
-                        // 统计用户问题
-                        if (analysisResult.userIssue) {
+                        // 根据已有信息统计
+                        if (userIssue) {
                             // 有用户问题
                             if (status === 'N-已联系上' || status === 'N-未联系上') {
                                 staffStats[staffName].hasIssue['N-已联系上']++;
@@ -3617,9 +3777,12 @@
                             } else if (status === 'Y') {
                                 staffStats[staffName].noIssue['Y']++;
                                 salesmanStats[salesmanTalkId].noIssue['Y']++;
-                            } else if (status === '未沟通' || status === '未更新系统状态') {
+                            } else if (status === '未沟通') {
                                 staffStats[staffName].noIssue['未沟通']++;
                                 salesmanStats[salesmanTalkId].noIssue['未沟通']++;
+                            } else if (status === '未更新系统状态') {
+                                staffStats[staffName].noIssue['未更新系统状态']++;
+                                salesmanStats[salesmanTalkId].noIssue['未更新系统状态']++;
                             }
                             staffStats[staffName].noIssue.total++;
                             salesmanStats[salesmanTalkId].noIssue.total++;
@@ -3644,6 +3807,7 @@
                         'N-未联系上': 0,
                         'Y': 0,
                         '未沟通': 0,
+                        '未更新系统状态': 0,
                         total: 0
                     },
                     hasIssue: {
@@ -3662,6 +3826,7 @@
                         staffStat.noIssue['N-未联系上'],
                         staffStat.noIssue['Y'],
                         staffStat.noIssue['未沟通'],
+                        staffStat.noIssue['未更新系统状态'],
                         staffStat.noIssue.total,
                         staffStat.hasIssue['N-已联系上'],
                         staffStat.hasIssue['Y'],
@@ -3674,6 +3839,7 @@
                     staffTotalStats.noIssue['N-未联系上'] += staffStat.noIssue['N-未联系上'];
                     staffTotalStats.noIssue['Y'] += staffStat.noIssue['Y'];
                     staffTotalStats.noIssue['未沟通'] += staffStat.noIssue['未沟通'];
+                    staffTotalStats.noIssue['未更新系统状态'] += staffStat.noIssue['未更新系统状态'];
                     staffTotalStats.noIssue.total += staffStat.noIssue.total;
                     staffTotalStats.hasIssue['N-已联系上'] += staffStat.hasIssue['N-已联系上'];
                     staffTotalStats.hasIssue['Y'] += staffStat.hasIssue['Y'];
@@ -3688,6 +3854,7 @@
                     staffTotalStats.noIssue['N-未联系上'],
                     staffTotalStats.noIssue['Y'],
                     staffTotalStats.noIssue['未沟通'],
+                    staffTotalStats.noIssue['未更新系统状态'],
                     staffTotalStats.noIssue.total,
                     staffTotalStats.hasIssue['N-已联系上'],
                     staffTotalStats.hasIssue['Y'],
@@ -3706,6 +3873,7 @@
                         'N-未联系上': 0,
                         'Y': 0,
                         '未沟通': 0,
+                        '未更新系统状态': 0,
                         total: 0
                     },
                     hasIssue: {
@@ -3724,6 +3892,7 @@
                         salesmanStat.noIssue['N-未联系上'],
                         salesmanStat.noIssue['Y'],
                         salesmanStat.noIssue['未沟通'],
+                        salesmanStat.noIssue['未更新系统状态'],
                         salesmanStat.noIssue.total,
                         salesmanStat.hasIssue['N-已联系上'],
                         salesmanStat.hasIssue['Y'],
@@ -3736,6 +3905,7 @@
                     salesmanTotalStats.noIssue['N-未联系上'] += salesmanStat.noIssue['N-未联系上'];
                     salesmanTotalStats.noIssue['Y'] += salesmanStat.noIssue['Y'];
                     salesmanTotalStats.noIssue['未沟通'] += salesmanStat.noIssue['未沟通'];
+                    salesmanTotalStats.noIssue['未更新系统状态'] += salesmanStat.noIssue['未更新系统状态'];
                     salesmanTotalStats.noIssue.total += salesmanStat.noIssue.total;
                     salesmanTotalStats.hasIssue['N-已联系上'] += salesmanStat.hasIssue['N-已联系上'];
                     salesmanTotalStats.hasIssue['Y'] += salesmanStat.hasIssue['Y'];
@@ -3750,6 +3920,7 @@
                     salesmanTotalStats.noIssue['N-未联系上'],
                     salesmanTotalStats.noIssue['Y'],
                     salesmanTotalStats.noIssue['未沟通'],
+                    salesmanTotalStats.noIssue['未更新系统状态'],
                     salesmanTotalStats.noIssue.total,
                     salesmanTotalStats.hasIssue['N-已联系上'],
                     salesmanTotalStats.hasIssue['Y'],
@@ -5221,6 +5392,224 @@
             
             alert(`批量更新完成：成功 ${successCount} 条，失败 ${failCount} 条`);
         }
+        
+        // ==================== 充值订单明细相关函数 ====================
+        
+        // 查询充值订单
+        async function queryRechargeOrder() {
+            const queryBtn = document.getElementById('queryRechargeOrderBtn');
+            const statusDiv = document.getElementById('rechargeOrderStatus');
+            const resultDiv = document.getElementById('rechargeOrderResult');
+            const summaryDiv = document.getElementById('rechargeSummary');
+            const exportBtn = document.getElementById('exportRechargeOrderBtn');
+            
+            // 获取token
+            const token = localStorage.getItem('talk915_token');
+            if (!token) {
+                statusDiv.innerHTML = '<div class="error-message">请先登录获取token</div>';
+                return;
+            }
+            
+            // 构建查询参数
+            const accountAttribute = [];
+            if (document.getElementById('attrExternal').checked) accountAttribute.push(0);
+            if (document.getElementById('attrDirect').checked) accountAttribute.push(1);
+            if (document.getElementById('attrDaren').checked) accountAttribute.push(2);
+            if (document.getElementById('attr托管').checked) accountAttribute.push(3);
+            
+            const orderStatus = document.getElementById('roOrderStatus').value;
+            
+            const payload = {
+                "accountAttribute": accountAttribute.length > 0 ? accountAttribute : null,
+                "teachCourse": document.getElementById('roTeachCourse').value || '',
+                "salesman": document.getElementById('roSalesman').value || '',
+                "phone": document.getElementById('roPhone').value || '',
+                "userId": document.getElementById('roUserId').value || '',
+                "staffId": document.getElementById('roStaffId').value || '',
+                "orderStatus": orderStatus === '-1' ? '' : parseInt(orderStatus),
+                "refundStatus": '',
+                "payBeginDate": document.getElementById('roPayBeginDate').value || '',
+                "payEndDate": document.getElementById('roPayEndDate').value || '',
+                "orderId": document.getElementById('roOrderId').value || '',
+                "payType": '',
+                "beginDate": document.getElementById('roBeginDate').value || null,
+                "endDate": document.getElementById('roEndDate').value || null,
+                "agentTalkId": document.getElementById('roAgentTalkId').value || '',
+                "joinCommission": document.getElementById('roJoinCommission').value || '',
+                "refundStartTime": document.getElementById('roRefundStartTime').value || '',
+                "refundEndTime": document.getElementById('roRefundEndTime').value || '',
+                "currPage": 0,
+                "pageSize": 200
+            };
+            
+            // 显示加载状态
+            queryBtn.disabled = true;
+            queryBtn.textContent = '查询中...';
+            statusDiv.innerHTML = '<div class="success-message">正在查询充值订单...</div>';
+            resultDiv.style.display = 'none';
+            summaryDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('https://www.talk915.com/market/orderPay/rechargeDetail', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'token': token,
+                        'origin': 'https://www.talk915.com',
+                        'referer': 'https://www.talk915.com/admin/order/rechargeOrder'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.resultCode === 0) {
+                    // 保存数据到全局变量
+                    window.rechargeOrderData = data.resultData;
+                    
+                    // 更新汇总信息
+                    updateRechargeSummary(data.resultData);
+                    
+                    // 渲染表格
+                    renderRechargeOrderTable(data.resultData.resultList);
+                    
+                    // 显示结果
+                    resultDiv.style.display = 'block';
+                    summaryDiv.style.display = 'block';
+                    exportBtn.style.display = 'inline-block';
+                    statusDiv.innerHTML = `<div class="success-message">查询成功，共 ${data.resultData.total} 条记录</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="error-message">查询失败: ${data.resultMessage || '未知错误'}</div>`;
+                }
+            } catch (error) {
+                console.error('查询充值订单错误:', error);
+                statusDiv.innerHTML = `<div class="error-message">网络请求出错: ${error.message}</div>`;
+            } finally {
+                queryBtn.disabled = false;
+                queryBtn.textContent = '查询';
+            }
+        }
+        
+        // 更新汇总信息
+        function updateRechargeSummary(resultData) {
+            document.getElementById('roTotal').textContent = resultData.total || 0;
+            document.getElementById('roPayTotalMoney').textContent = (resultData.payTotalMoney || 0).toFixed(2);
+            document.getElementById('roUnPayTotalMoney').textContent = (resultData.unPayTotalMoney || 0).toFixed(2);
+            document.getElementById('roRefundTotalMoney').textContent = (resultData.refundTotalMoney || 0).toFixed(2);
+            document.getElementById('roTotalEarn').textContent = (resultData.totalEarn || 0).toFixed(2);
+            document.getElementById('roChargeFee').textContent = (resultData.chargeFee || 0).toFixed(2);
+            document.getElementById('roServerFee').textContent = (resultData.serverFee || 0).toFixed(2);
+        }
+        
+        // 渲染充值订单表格
+        function renderRechargeOrderTable(data) {
+            const tableBody = document.getElementById('rechargeOrderTable').querySelector('tbody');
+            tableBody.innerHTML = '';
+            
+            data.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${item.userId || '-'}</td>
+                    <td>${item.productName || '-'}</td>
+                    <td>${item.orderId || '-'}</td>
+                    <td>${(item.payMoney || 0).toFixed(2)}</td>
+                    <td>${item.payTime || '-'}</td>
+                    <td>${getOstatusText(item.ostatus)}</td>
+                    <td>${item.talkId || '-'}</td>
+                    <td>${item.salesman || '-'}</td>
+                    <td>${item.staffUserName || '-'}</td>
+                    <td>${item.staffId || '-'}</td>
+                    <td>${item.teachCourse || '-'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 获取支付状态文本
+        function getOstatusText(ostatus) {
+            switch (ostatus) {
+                case 0: return '已支付';
+                case 1: return '未支付';
+                case 2: return '已取消';
+                default: return '-';
+            }
+        }
+        
+        // 导出充值订单到Excel
+        async function exportRechargeOrderToExcel() {
+            const data = window.rechargeOrderData;
+            if (!data || !data.resultList) {
+                alert('没有数据可导出');
+                return;
+            }
+            
+            try {
+                const workbook = new ExcelJS.Workbook();
+                
+                // 创建订单明细表
+                const worksheet = workbook.addWorksheet('充值订单明细');
+                worksheet.addRow(['序号', '用户编号', '套餐名', '订单号', '支付金额', '支付时间', '支付状态', '经销商', '业务员', '顾问姓名', '顾问ID', '推荐码']);
+                
+                data.resultList.forEach((item, index) => {
+                    worksheet.addRow([
+                        index + 1,
+                        item.userId || '',
+                        item.productName || '',
+                        item.orderId || '',
+                        (item.payMoney || 0).toFixed(2),
+                        item.payTime || '',
+                        getOstatusText(item.ostatus),
+                        item.talkId || '',
+                        item.salesman || '',
+                        item.staffUserName || '',
+                        item.staffId || '',
+                        item.teachCourse || ''
+                    ]);
+                });
+                
+                // 创建汇总表
+                const summaryWorksheet = workbook.addWorksheet('汇总统计');
+                summaryWorksheet.addRow(['统计项', '金额(元)']);
+                summaryWorksheet.addRow(['已支付金额', (data.payTotalMoney || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['待支付金额', (data.unPayTotalMoney || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['退款金额', (data.refundTotalMoney || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['收益', (data.totalEarn || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['手续费', (data.chargeFee || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['服务费', (data.serverFee || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['总记录数', data.total || 0]);
+                
+                // 导出文件
+                const dateStr = new Date().toISOString().slice(0, 10);
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                saveAs(blob, `充值订单明细_${dateStr}.xlsx`);
+                
+                console.log('充值订单导出成功');
+            } catch (error) {
+                console.error('导出充值订单错误:', error);
+                alert('导出失败: ' + error.message);
+            }
+        }
+        
+        // 设置支付日期默认为当天
+        function setDefaultPayDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('roPayBeginDate').value = today;
+            document.getElementById('roPayEndDate').value = today;
+        }
+        
+        // 页面加载时设置默认日期
+        document.addEventListener('DOMContentLoaded', function() {
+            setDefaultPayDate();
+        });
+        
+        // 绑定充值订单查询按钮事件
+        document.getElementById('queryRechargeOrderBtn').addEventListener('click', queryRechargeOrder);
+        
+        // 绑定充值订单导出按钮事件
+        document.getElementById('exportRechargeOrderBtn').addEventListener('click', exportRechargeOrderToExcel);
+        
     </script>
 </body>
 </html>
