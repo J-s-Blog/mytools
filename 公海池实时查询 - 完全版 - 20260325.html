@@ -1031,7 +1031,7 @@
                 
                 <!-- 备注信息 -->
                 <div style="margin-left: auto; padding: 8px 12px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-size: 12px; color: #856404;">
-                    <strong>备注:</strong> 推荐码为qd75572的订单，顾问姓名将自动设置为熊杰文(1458166)
+                    <strong>备注:</strong> 经销商代码为qd75572的订单，顾问姓名将自动设置为熊杰文(1458166)
                 </div>
             </div>
         </div>
@@ -1089,6 +1089,7 @@
                 <table id="consultantStatsTable" class="data-table">
                     <thead>
                         <tr>
+                            <th>排名</th>
                             <th>顾问姓名</th>
                             <th>用户数</th>
                             <th>订单数</th>
@@ -5578,9 +5579,10 @@
                 }
                 
                 if (data.resultCode === 0) {
-                    // 应用推荐码规则：如果推荐码是qd75572，则设置顾问姓名为熊杰文，顾问ID为1458166
+                    // 应用经销商代码规则：如果talkId是qd75572（不区分大小写），则设置顾问姓名为熊杰文，顾问ID为1458166
                     data.resultData.resultList.forEach(item => {
-                        if (item.teachCourse === 'qd75572') {
+                        const talkIdValue = (item.talkId || '').toLowerCase();
+                        if (talkIdValue === 'qd75572') {
                             item.staffUserName = '熊杰文';
                             item.staffId = '1458166';
                         }
@@ -5735,9 +5737,10 @@
             
             const sortedConsultants = Object.keys(stats).sort((a, b) => stats[b].totalMoney - stats[a].totalMoney);
             
-            sortedConsultants.forEach(consultant => {
+            sortedConsultants.forEach((consultant, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
+                    <td>${index + 1}</td>
                     <td>${consultant}</td>
                     <td>${stats[consultant].userCount}</td>
                     <td>${stats[consultant].orderCount}</td>
@@ -5839,6 +5842,15 @@
             tableBody.innerHTML = '';
             
             data.forEach((item, index) => {
+                // 应用经销商代码规则：如果talkId是qd75572（不区分大小写），则设置顾问姓名为熊杰文，顾问ID为1458166
+                let staffUserName = item.staffUserName;
+                let staffId = item.staffId;
+                const talkIdValue = (item.talkId || '').toLowerCase();
+                if (talkIdValue === 'qd75572') {
+                    staffUserName = '熊杰文';
+                    staffId = '1458166';
+                }
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${index + 1}</td>
@@ -5850,8 +5862,8 @@
                     <td>${getOstatusText(item.ostatus)}</td>
                     <td>${item.talkId || '-'}</td>
                     <td>${item.salesman || '-'}</td>
-                    <td>${item.staffUserName || '-'}</td>
-                    <td>${item.staffId || '-'}</td>
+                    <td>${staffUserName || '-'}</td>
+                    <td>${staffId || '-'}</td>
                     <td>${item.teachCourse || '-'}</td>
                 `;
                 tableBody.appendChild(row);
@@ -5885,6 +5897,15 @@
                 worksheet.addRow(['序号', '用户编号', '套餐名', '订单号', '支付金额', '支付时间', '支付状态', '经销商', '业务员', '顾问姓名', '顾问ID', '推荐码']);
                 
                 data.resultList.forEach((item, index) => {
+                    // 应用经销商代码规则：如果talkId是qd75572（不区分大小写），则设置顾问姓名为熊杰文，顾问ID为1458166
+                    let staffUserName = item.staffUserName;
+                    let staffId = item.staffId;
+                    const talkIdValue = (item.talkId || '').toLowerCase();
+                    if (talkIdValue === 'qd75572') {
+                        staffUserName = '熊杰文';
+                        staffId = '1458166';
+                    }
+                    
                     worksheet.addRow([
                         index + 1,
                         item.userId || '',
@@ -5895,8 +5916,8 @@
                         getOstatusText(item.ostatus),
                         item.talkId || '',
                         item.salesman || '',
-                        item.staffUserName || '',
-                        item.staffId || '',
+                        staffUserName || '',
+                        staffId || '',
                         item.teachCourse || ''
                     ]);
                 });
@@ -5915,11 +5936,12 @@
                 // 创建顾问统计表
                 const consultantStats = window.rechargeConsultantStats || generateConsultantStats(data.resultList);
                 const consultantWorksheet = workbook.addWorksheet('顾问统计');
-                consultantWorksheet.addRow(['顾问姓名', '用户数', '订单数', '支付金额(元)']);
+                consultantWorksheet.addRow(['排名', '顾问姓名', '用户数', '订单数', '支付金额(元)']);
                 
                 const sortedConsultants = Object.keys(consultantStats).sort((a, b) => consultantStats[b].totalMoney - consultantStats[a].totalMoney);
-                sortedConsultants.forEach(consultant => {
+                sortedConsultants.forEach((consultant, index) => {
                     consultantWorksheet.addRow([
+                        index + 1,
                         consultant,
                         consultantStats[consultant].userCount,
                         consultantStats[consultant].orderCount,
