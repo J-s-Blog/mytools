@@ -947,6 +947,7 @@
                         <option value="0" selected>已支付</option>
                         <option value="1">未支付</option>
                         <option value="2">已取消</option>
+                        <option value="3">已退款</option>
                     </select>
                 </div>
                 
@@ -5419,6 +5420,20 @@
             
             const orderStatus = document.getElementById('roOrderStatus').value;
             
+            // 根据选择的状态设置对应的参数
+            let finalOrderStatus = '';
+            let finalRefundStatus = '';
+            
+            if (orderStatus === '3') {
+                // 已退款状态
+                finalOrderStatus = '';
+                finalRefundStatus = '0';
+            } else if (orderStatus !== '-1') {
+                // 其他订单状态
+                finalOrderStatus = parseInt(orderStatus);
+                finalRefundStatus = '';
+            }
+            
             const payload = {
                 "accountAttribute": accountAttribute.length > 0 ? accountAttribute : null,
                 "teachCourse": document.getElementById('roTeachCourse').value || '',
@@ -5426,8 +5441,8 @@
                 "phone": document.getElementById('roPhone').value || '',
                 "userId": document.getElementById('roUserId').value || '',
                 "staffId": document.getElementById('roStaffId').value || '',
-                "orderStatus": orderStatus === '-1' ? '' : parseInt(orderStatus),
-                "refundStatus": '',
+                "orderStatus": finalOrderStatus,
+                "refundStatus": finalRefundStatus,
                 "payBeginDate": document.getElementById('roPayBeginDate').value || '',
                 "payEndDate": document.getElementById('roPayEndDate').value || '',
                 "orderId": document.getElementById('roOrderId').value || '',
@@ -5492,13 +5507,16 @@
         
         // 更新汇总信息
         function updateRechargeSummary(resultData) {
-            document.getElementById('roTotal').textContent = resultData.total || 0;
-            document.getElementById('roPayTotalMoney').textContent = (resultData.payTotalMoney || 0).toFixed(2);
-            document.getElementById('roUnPayTotalMoney').textContent = (resultData.unPayTotalMoney || 0).toFixed(2);
-            document.getElementById('roRefundTotalMoney').textContent = (resultData.refundTotalMoney || 0).toFixed(2);
-            document.getElementById('roTotalEarn').textContent = (resultData.totalEarn || 0).toFixed(2);
-            document.getElementById('roChargeFee').textContent = (resultData.chargeFee || 0).toFixed(2);
-            document.getElementById('roServerFee').textContent = (resultData.serverFee || 0).toFixed(2);
+            if (!resultData) {
+                resultData = {};
+            }
+            document.getElementById('roTotal').textContent = parseInt(resultData.total || 0);
+            document.getElementById('roPayTotalMoney').textContent = (parseFloat(resultData.payTotalMoney) || 0).toFixed(2);
+            document.getElementById('roUnPayTotalMoney').textContent = (parseFloat(resultData.unPayTotalMoney) || 0).toFixed(2);
+            document.getElementById('roRefundTotalMoney').textContent = (parseFloat(resultData.refundTotalMoney) || 0).toFixed(2);
+            document.getElementById('roTotalEarn').textContent = (parseFloat(resultData.totalEarn) || 0).toFixed(2);
+            document.getElementById('roChargeFee').textContent = (parseFloat(resultData.chargeFee) || 0).toFixed(2);
+            document.getElementById('roServerFee').textContent = (parseFloat(resultData.serverFee) || 0).toFixed(2);
         }
         
         // 渲染充值订单表格
@@ -5532,6 +5550,7 @@
                 case 0: return '已支付';
                 case 1: return '未支付';
                 case 2: return '已取消';
+                case 3: return '已退款';
                 default: return '-';
             }
         }
