@@ -5963,10 +5963,29 @@
                 productWorksheet.addRow(totalRowData);
                 
                 // 导出文件
-                const dateStr = new Date().toISOString().slice(0, 10);
+                const now = new Date();
+                const dateStr = now.toISOString().slice(0, 10);
+                const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+                
+                // 获取查询条件中的日期
+                const payBeginDate = document.getElementById('roPayBeginDate').value || '';
+                const payEndDate = document.getElementById('roPayEndDate').value || '';
+                const orderBeginDate = document.getElementById('roBeginDate').value || '';
+                const orderEndDate = document.getElementById('roEndDate').value || '';
+                
+                // 构建日期范围字符串
+                let dateRange = '';
+                if (payBeginDate && payEndDate) {
+                    dateRange = `_支付日期${payBeginDate}-${payEndDate}`;
+                } else if (orderBeginDate && orderEndDate) {
+                    dateRange = `_下单日期${orderBeginDate}-${orderEndDate}`;
+                }
+                
+                const fileName = `充值订单明细${dateRange}_${dateStr}_${timeStr}.xlsx`;
+                
                 const buffer = await workbook.xlsx.writeBuffer();
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                saveAs(blob, `充值订单明细_${dateStr}.xlsx`);
+                saveAs(blob, fileName);
                 
                 console.log('充值订单导出成功');
             } catch (error) {
