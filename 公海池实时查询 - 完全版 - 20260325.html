@@ -5877,7 +5877,7 @@
                         item.userId || '',
                         item.productName || '',
                         item.orderId || '',
-                        (item.payMoney || 0).toFixed(2),
+                        parseFloat(item.payMoney || 0),
                         item.payTime || '',
                         getOstatusText(item.ostatus),
                         item.talkId || '',
@@ -5891,12 +5891,12 @@
                 // 创建汇总表
                 const summaryWorksheet = workbook.addWorksheet('汇总统计');
                 summaryWorksheet.addRow(['统计项', '金额(元)']);
-                summaryWorksheet.addRow(['已支付金额', (data.payTotalMoney || 0).toFixed(2)]);
-                summaryWorksheet.addRow(['待支付金额', (data.unPayTotalMoney || 0).toFixed(2)]);
-                summaryWorksheet.addRow(['退款金额', (data.refundTotalMoney || 0).toFixed(2)]);
-                summaryWorksheet.addRow(['收益', (data.totalEarn || 0).toFixed(2)]);
-                summaryWorksheet.addRow(['手续费', (data.chargeFee || 0).toFixed(2)]);
-                summaryWorksheet.addRow(['服务费', (data.serverFee || 0).toFixed(2)]);
+                summaryWorksheet.addRow(['已支付金额', parseFloat((data.payTotalMoney || 0).toFixed(2))]);
+                summaryWorksheet.addRow(['待支付金额', parseFloat((data.unPayTotalMoney || 0).toFixed(2))]);
+                summaryWorksheet.addRow(['退款金额', parseFloat((data.refundTotalMoney || 0).toFixed(2))]);
+                summaryWorksheet.addRow(['收益', parseFloat((data.totalEarn || 0).toFixed(2))]);
+                summaryWorksheet.addRow(['手续费', parseFloat((data.chargeFee || 0).toFixed(2))]);
+                summaryWorksheet.addRow(['服务费', parseFloat((data.serverFee || 0).toFixed(2))]);
                 summaryWorksheet.addRow(['总记录数', data.total || 0]);
                 
                 // 创建顾问统计表
@@ -5910,51 +5910,54 @@
                         consultant,
                         consultantStats[consultant].userCount,
                         consultantStats[consultant].orderCount,
-                        consultantStats[consultant].totalMoney.toFixed(2)
+                        parseFloat(consultantStats[consultant].totalMoney.toFixed(2))
                     ]);
                 });
                 
-                // 创建套餐统计表（矩阵形式）
+                // 创建套餐统计表（矩阵形式）- 行列交换版
                 const productStats = window.rechargeProductStats || generateProductStats(data.resultList);
                 const productWorksheet = workbook.addWorksheet('套餐统计');
                 
-                // 获取所有套餐名
+                // 获取所有套餐名和顾问名
                 const allProducts = new Set();
-                Object.values(productStats).forEach(products => {
+                const allConsultants = new Set();
+                Object.entries(productStats).forEach(([consultant, products]) => {
+                    allConsultants.add(consultant);
                     Object.keys(products).forEach(product => allProducts.add(product));
                 });
-                const sortedProducts = Array.from(allProducts).sort();
                 
-                // 生成表头
-                const headerRow = ['顾问姓名', ...sortedProducts, '合计'];
+                const sortedProducts = Array.from(allProducts).sort();
+                const sortedProductConsultants = Array.from(allConsultants).sort();
+                
+                // 生成表头（第一列是套餐名，后面是顾问姓名）
+                const headerRow = ['套餐名', ...sortedProductConsultants, '合计'];
                 productWorksheet.addRow(headerRow);
                 
-                // 生成数据行
-                const sortedProductConsultants = Object.keys(productStats).sort();
-                const productTotals = {};
-                sortedProducts.forEach(product => productTotals[product] = 0);
+                // 生成数据行（按套餐名）
+                const consultantTotals = {};
+                sortedProductConsultants.forEach(consultant => consultantTotals[consultant] = 0);
                 
-                sortedProductConsultants.forEach(consultant => {
-                    const rowData = [consultant];
-                    let consultantTotal = 0;
+                sortedProducts.forEach(product => {
+                    const rowData = [product];
+                    let productTotal = 0;
                     
-                    sortedProducts.forEach(product => {
-                        const count = productStats[consultant][product] || 0;
+                    sortedProductConsultants.forEach(consultant => {
+                        const count = productStats[consultant] && productStats[consultant][product] ? productStats[consultant][product] : 0;
                         rowData.push(count);
-                        consultantTotal += count;
-                        productTotals[product] += count;
+                        productTotal += count;
+                        consultantTotals[consultant] += count;
                     });
                     
-                    rowData.push(consultantTotal);
+                    rowData.push(productTotal);
                     productWorksheet.addRow(rowData);
                 });
                 
                 // 生成汇总行
                 const totalRowData = ['合计'];
                 let grandTotal = 0;
-                sortedProducts.forEach(product => {
-                    totalRowData.push(productTotals[product]);
-                    grandTotal += productTotals[product];
+                sortedProductConsultants.forEach(consultant => {
+                    totalRowData.push(consultantTotals[consultant]);
+                    grandTotal += consultantTotals[consultant];
                 });
                 totalRowData.push(grandTotal);
                 productWorksheet.addRow(totalRowData);
