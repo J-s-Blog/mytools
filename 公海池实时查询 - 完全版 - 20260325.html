@@ -5734,28 +5734,31 @@
             });
         }
         
-        // 渲染套餐统计表格（矩阵形式）
+        // 渲染套餐统计表格（矩阵形式）- 行列交换版
         function renderProductStats(stats) {
             const table = document.getElementById('productStatsTable');
             const thead = table.querySelector('thead tr');
             const tbody = table.querySelector('tbody');
             
             // 清空表格
-            thead.innerHTML = '<th>顾问姓名</th>';
+            thead.innerHTML = '<th>套餐名</th>';
             tbody.innerHTML = '';
             
-            // 获取所有套餐名
+            // 获取所有套餐名和顾问名
             const allProducts = new Set();
-            Object.values(stats).forEach(products => {
+            const allConsultants = new Set();
+            Object.entries(stats).forEach(([consultant, products]) => {
+                allConsultants.add(consultant);
                 Object.keys(products).forEach(product => allProducts.add(product));
             });
             
             const sortedProducts = Array.from(allProducts).sort();
+            const sortedConsultants = Array.from(allConsultants).sort();
             
-            // 生成表头（套餐名）
-            sortedProducts.forEach(product => {
+            // 生成表头（顾问姓名）
+            sortedConsultants.forEach(consultant => {
                 const th = document.createElement('th');
-                th.textContent = product;
+                th.textContent = consultant;
                 thead.appendChild(th);
             });
             // 添加合计列
@@ -5763,33 +5766,32 @@
             totalTh.textContent = '合计';
             thead.appendChild(totalTh);
             
-            // 生成数据行
-            const sortedConsultants = Object.keys(stats).sort();
-            const productTotals = {}; // 每个套餐的总销量
-            sortedProducts.forEach(product => productTotals[product] = 0);
+            // 生成数据行（按套餐名）
+            const consultantTotals = {}; // 每个顾问的总销量
+            sortedConsultants.forEach(consultant => consultantTotals[consultant] = 0);
             
-            sortedConsultants.forEach(consultant => {
+            sortedProducts.forEach(product => {
                 const row = document.createElement('tr');
                 
-                // 顾问姓名
+                // 套餐名
                 const nameCell = document.createElement('td');
-                nameCell.textContent = consultant;
+                nameCell.textContent = product;
                 row.appendChild(nameCell);
                 
-                // 各套餐销量
-                let consultantTotal = 0;
-                sortedProducts.forEach(product => {
+                // 各顾问销量
+                let productTotal = 0;
+                sortedConsultants.forEach(consultant => {
                     const cell = document.createElement('td');
-                    const count = stats[consultant][product] || 0;
+                    const count = stats[consultant] && stats[consultant][product] ? stats[consultant][product] : 0;
                     cell.textContent = count;
                     row.appendChild(cell);
-                    consultantTotal += count;
-                    productTotals[product] += count;
+                    productTotal += count;
+                    consultantTotals[consultant] += count;
                 });
                 
                 // 合计
                 const totalCell = document.createElement('td');
-                totalCell.textContent = consultantTotal;
+                totalCell.textContent = productTotal;
                 row.appendChild(totalCell);
                 
                 tbody.appendChild(row);
@@ -5804,11 +5806,11 @@
             totalRow.appendChild(totalLabelCell);
             
             let grandTotal = 0;
-            sortedProducts.forEach(product => {
+            sortedConsultants.forEach(consultant => {
                 const cell = document.createElement('td');
-                cell.textContent = productTotals[product];
+                cell.textContent = consultantTotals[consultant];
                 totalRow.appendChild(cell);
-                grandTotal += productTotals[product];
+                grandTotal += consultantTotals[consultant];
             });
             
             const grandTotalCell = document.createElement('td');
