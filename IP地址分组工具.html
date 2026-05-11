@@ -655,8 +655,11 @@
             displayResults();
             exportBtn.disabled = false;
             
-            // 切换到结果标签页
-            document.querySelector('.tab-button[data-tab="result"]').click();
+            // 切换到结果标签页（检查元素是否存在）
+            const resultTab = document.querySelector('.tab-button[data-tab="result"]');
+            if (resultTab) {
+                resultTab.click();
+            }
         });
         
         // 处理数据
@@ -672,10 +675,11 @@
             for (let i = startIndex; i < rawData.length; i++) {
                 const row = rawData[i];
                 if (row.length > Math.max(userColIndex, ipColIndex)) {
-                    let user = row[userColIndex].trim();
+                    // 将值转换为字符串，处理非字符串类型（如数字、null、undefined等）
+                    let user = String(row[userColIndex] || '').trim();
                     // 提取用户ID，去除前缀和空格
                     user = user.replace(/^[^0-9]+/, '').trim();
-                    const ipListStr = row[ipColIndex].trim();
+                    const ipListStr = String(row[ipColIndex] || '').trim();
                     
                     // 解析IP列表，支持多种分隔符
                     const ips = [];
@@ -796,7 +800,7 @@
                     });
                     
                     // 查找当前用户的分组信息
-                    const user = rawData[i][parseInt(userColumn.value)].trim().replace(/^[^0-9]+/, '').trim();
+                    const user = String(rawData[i][parseInt(userColumn.value)] || '').trim().replace(/^[^0-9]+/, '').trim();
                     const groupInfo = findUserGroup(user);
                     
                     html += `<td>${groupInfo.group}</td>`;
@@ -823,7 +827,7 @@
                     });
                     
                     // 查找当前用户的分组信息
-                    const user = rawData[i][parseInt(userColumn.value)].trim().replace(/^[^0-9]+/, '').trim();
+                    const user = String(rawData[i][parseInt(userColumn.value)] || '').trim().replace(/^[^0-9]+/, '').trim();
                     const groupInfo = findUserGroup(user);
                     
                     html += `<td>${groupInfo.group}</td>`;
@@ -893,8 +897,8 @@
             for (let i = startIndex; i < rawData.length; i++) {
                 const row = [...rawData[i]];
                 
-                // 查找当前用户的分组信息
-                const user = rawData[i][userColIndex].trim().replace(/^[^0-9]+/, '').trim();
+                // 查找当前用户的分组信息（处理非字符串类型）
+                const user = String(rawData[i][userColIndex] || '').trim().replace(/^[^0-9]+/, '').trim();
                 const groupInfo = findUserGroup(user);
                 
                 row.push(groupInfo.group);
