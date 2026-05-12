@@ -3874,45 +3874,183 @@ function exportRegisteredUsers() {
             }
         }
         
-        // 单线程串行查询和批量处理函数
-        async function queryFollowUpInfoInParallel(ids, token, batchSize = 1, progressCallback) {
-            const results = [];
+        // 优化后的批量查询函数，支持真正的并发查询、动态间隔调整、失败重试和批次控制
+        async function queryFollowUpInfoInParallel(ids, token, batchSize = 5, progressCallback) {
+            const results = new Array(ids.length);
             const total = ids.length;
             let processed = 0;
             
-            // 串行处理每个ID
-            for (let i = 0; i < ids.length; i++) {
-                const id = ids[i];
+            // 查询配置参数
+            let currentDelay = 500; // 当前查询间隔(ms)
+            const minDelay = 200;   // 最小间隔
+            const maxDelay = 3000;  // 最大间隔
+            const delayStep = 100;  // 间隔调整步长
+            let consecutiveSuccess = 0; // 连续成功次数
+            let consecutiveFailures = 0; // 连续失败次数
+            const successThreshold = 10; // 连续成功多少次后加快
+            const failureThreshold = 3;  // 连续失败多少次后减慢
+            
+            // 将ID分成批次
+            const batches = [];
+            for (let i = 0; i < ids.length; i += batchSize) {
+                batches.push({
+                    ids: ids.slice(i, Math.min(i + batchSize, ids.length)),
+                    startIndex: i
+                });
+            }
+            
+            // 处理每个批次
+            for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                const batch = batches[batchIndex];
+                let batchCompleted = false;
+                let retryCount = 0;
+                const maxBatchRetries = 5; // 批次最大重试次数
+                const batchResults = new Array(batch.ids.length);
                 
-                try {
-                    // 串行执行查询
-                    const result = await queryFollowUpInfo(id, token);
-                    results.push(result);
-                } catch (error) {
-                    // 处理失败的查询
-                    results.push({
-                        userId: id,
-                        staffName: '-',
-                        staffUserId: '-',
-                        staffTalkId: '-',
-                        remark: '查询失败'
+                // 批次处理循环，确保批次内所有查询成功
+                while (!batchCompleted && retryCount < maxBatchRetries) {
+                    batchCompleted = true;
+                    const failedIndices = [];
+                    
+                    // 并发查询批次中的所有ID
+                    const queryPromises = batch.ids.map(async (id, index) => {
+                        // 如果已经有结果且是成功的，跳过
+                        if (batchResults[index] && batchResults[index].remark !== '查询失败' && 
+                            batchResults[index].remark !== '未找到数据' && 
+                            batchResults[index].remark !== '无权限查询') {
+                            return batchResults[index];
+                        }
+                        
+                        try {
+                            // 执行查询（带重试机制）
+                            const result = await queryFollowUpInfoWithRetry(id, token);
+                            batchResults[index] = result;
+                            
+                            // 检查是否成功
+                            if (result.remark === '查询失败' || 
+                                result.remark === '未找到数据' || 
+                                result.remark === '无权限查询') {
+                                batchCompleted = false;
+                                failedIndices.push(index);
+                                consecutiveFailures++;
+                                consecutiveSuccess = 0;
+                            } else {
+                                consecutiveSuccess++;
+                                consecutiveFailures = 0;
+                            }
+                            
+                            // 更新进度
+                            processed++;
+                            if (progressCallback) {
+                                progressCallback(Math.min(processed, total), total);
+                            }
+                            
+                            return result;
+                        } catch (error) {
+                            batchResults[index] = {
+                                userId: id,
+                                staffName: '-',
+                                staffUserId: '-',
+                                staffTalkId: '-',
+                                remark: '查询失败'
+                            };
+                            batchCompleted = false;
+                            failedIndices.push(index);
+                            consecutiveFailures++;
+                            consecutiveSuccess = 0;
+                            
+                            processed++;
+                            if (progressCallback) {
+                                progressCallback(Math.min(processed, total), total);
+                            }
+                            
+                            return batchResults[index];
+                        }
                     });
+                    
+                    // 等待批次内所有查询完成（真正的并发）
+                    await Promise.all(queryPromises);
+                    
+                    // 如果批次未完成，准备重试失败的项
+                    if (!batchCompleted) {
+                        retryCount++;
+                        // 增加延迟并重试失败的项
+                        currentDelay = Math.min(maxDelay, currentDelay + delayStep * 2);
+                        console.log(`批次 ${batchIndex + 1} 第 ${retryCount} 次重试，延迟调整为 ${currentDelay}ms，失败项：${failedIndices.length}个`);
+                        
+                        // 只保留失败的ID用于重试
+                        batch.ids = failedIndices.map(idx => batch.ids[idx]);
+                        // 重置batchResults中失败项
+                        const newBatchResults = [];
+                        failedIndices.forEach((idx, newIdx) => {
+                            newBatchResults[newIdx] = batchResults[idx];
+                        });
+                        batchResults.length = 0;
+                        batchResults.push(...newBatchResults);
+                        
+                        // 在重试前等待更长时间
+                        await new Promise(resolve => setTimeout(resolve, currentDelay * 2));
+                    }
                 }
                 
-                processed++;
-                
-                // 调用进度回调
-                if (progressCallback) {
-                    progressCallback(processed, total);
+                // 将批次结果放入最终结果数组
+                for (let i = 0; i < batchResults.length; i++) {
+                    results[batch.startIndex + i] = batchResults[i];
                 }
                 
-                // 每个查询之间添加延迟，避免请求过快
-                if (i < ids.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                // 动态调整查询间隔
+                adjustDelay();
+                
+                // 批次间延迟
+                if (batchIndex < batches.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, currentDelay));
                 }
             }
             
             return results;
+            
+            // 动态调整延迟函数
+            function adjustDelay() {
+                if (consecutiveSuccess >= successThreshold) {
+                    // 连续成功，加快查询
+                    currentDelay = Math.max(minDelay, currentDelay - delayStep);
+                    consecutiveSuccess = 0;
+                    console.log(`连续成功 ${successThreshold} 次，延迟降低为 ${currentDelay}ms`);
+                } else if (consecutiveFailures >= failureThreshold) {
+                    // 连续失败，减慢查询
+                    currentDelay = Math.min(maxDelay, currentDelay + delayStep);
+                    consecutiveFailures = 0;
+                    console.log(`连续失败 ${failureThreshold} 次，延迟增加为 ${currentDelay}ms`);
+                }
+            }
+        }
+        
+        // 带重试机制的单个用户查询函数
+        async function queryFollowUpInfoWithRetry(userId, token, maxRetries = 3) {
+            let retries = 0;
+            
+            while (retries < maxRetries) {
+                const result = await queryFollowUpInfo(userId, token);
+                
+                // 检查是否成功
+                if (result.remark !== '查询失败' && 
+                    result.remark !== '未找到数据' && 
+                    result.remark !== '无权限查询') {
+                    return result;
+                }
+                
+                retries++;
+                
+                if (retries < maxRetries) {
+                    // 等待后重试，指数退避
+                    const delay = 500 * Math.pow(2, retries);
+                    console.log(`用户 ${userId} 查询失败，${delay}ms 后重试 (${retries}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            
+            // 达到最大重试次数，返回最终结果
+            return result;
         }
 
         // 套餐列表获取功能
@@ -5201,8 +5339,8 @@ function exportRegisteredUsers() {
                 // 存储查询结果
                 let results = [];
                 
-                // 使用并行查询和批量处理函数
-                results = await queryFollowUpInfoInParallel(queryValues, token, 1, (processed, total) => {
+                // 使用优化后的批量查询函数（批次大小为5）
+                results = await queryFollowUpInfoInParallel(queryValues, token, 5, (processed, total) => {
                     // 更新查询状态
                     queryStatus.textContent = `正在查询数据，已完成 ${processed}/${totalQueries}...`;
                     
