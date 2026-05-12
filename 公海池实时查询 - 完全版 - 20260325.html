@@ -499,6 +499,7 @@
                 <button class="tab-button" data-tab="seaPool">公海池数据看板</button>
                 <button class="tab-button" data-tab="followUpRecord">公海池跟进记录查询</button>
                 <button class="tab-button" data-tab="specialHold">保有量配置</button>
+                <button class="tab-button" data-tab="accountBinding">跟进账号绑定</button>
                 <button class="tab-button" data-tab="rechargeOrder">充值订单明细</button>
             </div>
             
@@ -907,6 +908,57 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- 跟进账号绑定Tab -->
+        <div id="accountBinding" class="tab-content">
+            <h2>跟进账号绑定</h2>
+            
+            <div class="form-group">
+                <label for="bindStaffTalkId">员工talkId:</label>
+                <input type="text" id="bindStaffTalkId" name="bindStaffTalkId" placeholder="请输入员工talkId，如 empxgs498">
+            </div>
+            
+            <div class="form-group">
+                <label for="bindDealerTalkId">经销商/业务员talkId:</label>
+                <input type="text" id="bindDealerTalkId" name="bindDealerTalkId" placeholder="请输入经销商/业务员talkId，如 QD755XGS498">
+            </div>
+            
+            <button type="button" id="verifyBindBtn">提交验证</button>
+            
+            <!-- 验证结果区域 -->
+            <div id="verifyResult" style="margin-top: 30px; display: none;">
+                <h3>验证结果</h3>
+                
+                <div id="verifyMessage" style="margin-bottom: 20px;"></div>
+                
+                <div id="bindInfo" style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; display: none;">
+                    <div style="display: flex; gap: 40px;">
+                        <div>
+                            <h4>员工信息</h4>
+                            <div class="key-value-pair"><span class="key">员工ID:</span><span id="verifyStaffUserId" class="value"></span></div>
+                            <div class="key-value-pair"><span class="key">talkId:</span><span id="verifyStaffTalkId" class="value"></span></div>
+                            <div class="key-value-pair"><span class="key">姓名:</span><span id="verifyStaffUserName" class="value"></span></div>
+                        </div>
+                        <div>
+                            <h4>经销商/业务员信息</h4>
+                            <div class="key-value-pair"><span class="key">talkId:</span><span id="verifyDealerTalkId" class="value"></span></div>
+                            <div class="key-value-pair"><span class="key">名称:</span><span id="verifyDealerName" class="value"></span></div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        <button type="button" id="confirmBindBtn" style="flex: 1;">确认绑定</button>
+                        <button type="button" id="cancelBindBtn" style="flex: 1; background-color: #6c757d;">取消</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 绑定结果区域 -->
+            <div id="bindResult" style="margin-top: 30px; display: none;">
+                <h3>绑定结果</h3>
+                <div id="bindResultMessage"></div>
             </div>
         </div>
         
@@ -5260,15 +5312,154 @@
             if (!file) return;
             
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const content = e.target.result;
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                const content = await detectAndDecode(arrayBuffer);
                 const data = parseCSV(content);
                 if (data.length > 0) {
                     previewImportData(data);
                 }
             };
-            reader.readAsText(file, 'UTF-8');
+            reader.readAsArrayBuffer(file);
         });
+        
+        // 检测文件编码并解码
+        async function detectAndDecode(arrayBuffer) {
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // 检测BOM（字节顺序标记）
+            const bom = detectBOM(uint8Array);
+            let startIndex = 0;
+            let encoding = 'UTF-8'; // 默认编码
+            
+            if (bom) {
+                startIndex = bom.length;
+                encoding = bom.encoding;
+            } else {
+                // 没有BOM，尝试检测编码
+                encoding = detectEncoding(uint8Array);
+            }
+            
+            try {
+                // 使用TextDecoder解码
+                const decoder = new TextDecoder(encoding);
+                return decoder.decode(uint8Array.slice(startIndex));
+            } catch (error) {
+                console.error(`使用 ${encoding} 解码失败:`, error);
+                // 降级使用UTF-8
+                try {
+                    const decoder = new TextDecoder('UTF-8');
+                    return decoder.decode(uint8Array.slice(startIndex));
+                } catch (e) {
+                    console.error('UTF-8解码也失败:', e);
+                    return '';
+                }
+            }
+        }
+        
+        // 检测BOM
+        function detectBOM(uint8Array) {
+            // UTF-8 BOM: EF BB BF
+            if (uint8Array.length >= 3 && 
+                uint8Array[0] === 0xEF && 
+                uint8Array[1] === 0xBB && 
+                uint8Array[2] === 0xBF) {
+                return { encoding: 'UTF-8', length: 3 };
+            }
+            
+            // UTF-16 LE BOM: FF FE
+            if (uint8Array.length >= 2 && 
+                uint8Array[0] === 0xFF && 
+                uint8Array[1] === 0xFE) {
+                return { encoding: 'UTF-16LE', length: 2 };
+            }
+            
+            // UTF-16 BE BOM: FE FF
+            if (uint8Array.length >= 2 && 
+                uint8Array[0] === 0xFE && 
+                uint8Array[1] === 0xFF) {
+                return { encoding: 'UTF-16BE', length: 2 };
+            }
+            
+            // UTF-32 LE BOM: FF FE 00 00
+            if (uint8Array.length >= 4 && 
+                uint8Array[0] === 0xFF && 
+                uint8Array[1] === 0xFE && 
+                uint8Array[2] === 0x00 && 
+                uint8Array[3] === 0x00) {
+                return { encoding: 'UTF-32LE', length: 4 };
+            }
+            
+            // UTF-32 BE BOM: 00 00 FE FF
+            if (uint8Array.length >= 4 && 
+                uint8Array[0] === 0x00 && 
+                uint8Array[1] === 0x00 && 
+                uint8Array[2] === 0xFE && 
+                uint8Array[3] === 0xFF) {
+                return { encoding: 'UTF-32BE', length: 4 };
+            }
+            
+            return null;
+        }
+        
+        // 检测无BOM文件的编码
+        function detectEncoding(uint8Array) {
+            // 检查是否包含典型的GBK/GB2312字节模式
+            let hasGBKPattern = false;
+            let hasUTF8Pattern = false;
+            
+            for (let i = 0; i < uint8Array.length - 1; i++) {
+                const byte1 = uint8Array[i];
+                const byte2 = uint8Array[i + 1];
+                
+                // GBK/GB2312 双字节特征：第一个字节在 0xB0-0xF7，第二个字节在 0xA1-0xFE
+                if (byte1 >= 0xB0 && byte1 <= 0xF7 && byte2 >= 0xA1 && byte2 <= 0xFE) {
+                    hasGBKPattern = true;
+                }
+                
+                // UTF-8 多字节特征：0xE0-0xEF 开头表示双字节汉字
+                if (byte1 >= 0xE0 && byte1 <= 0xEF && byte2 >= 0x80 && byte2 <= 0xBF) {
+                    hasUTF8Pattern = true;
+                }
+            }
+            
+            // 如果检测到GBK模式且没有明显的UTF-8模式，认为是GBK编码
+            if (hasGBKPattern && !hasUTF8Pattern) {
+                return 'GBK';
+            }
+            
+            // 如果只有UTF-8模式，认为是UTF-8编码
+            if (hasUTF8Pattern && !hasGBKPattern) {
+                return 'UTF-8';
+            }
+            
+            // 如果两种模式都有或都没有，进一步分析
+            if (hasGBKPattern && hasUTF8Pattern) {
+                // 统计两种模式的出现次数
+                let gbkCount = 0;
+                let utf8Count = 0;
+                
+                for (let i = 0; i < uint8Array.length - 1; i++) {
+                    const byte1 = uint8Array[i];
+                    const byte2 = uint8Array[i + 1];
+                    
+                    if (byte1 >= 0xB0 && byte1 <= 0xF7 && byte2 >= 0xA1 && byte2 <= 0xFE) {
+                        gbkCount++;
+                    }
+                    if (byte1 >= 0xE0 && byte1 <= 0xEF && byte2 >= 0x80 && byte2 <= 0xBF) {
+                        utf8Count++;
+                    }
+                }
+                
+                // GBK模式更多则认为是GBK
+                if (gbkCount > utf8Count) {
+                    return 'GBK';
+                }
+            }
+            
+            // 默认返回UTF-8
+            return 'UTF-8';
+        }
         
         // 解析CSV文件
         function parseCSV(content) {
@@ -5475,6 +5666,203 @@
             }
             
             alert(`批量更新完成：成功 ${successCount} 条，失败 ${failCount} 条`);
+        }
+        
+        // ==================== 跟进账号绑定相关函数 ====================
+        
+        // 存储验证成功的数据
+        let bindVerificationData = null;
+        
+        // 绑定验证按钮事件
+        document.getElementById('verifyBindBtn').addEventListener('click', async function() {
+            await verifyBindAccount();
+        });
+        
+        // 绑定确认绑定按钮事件
+        document.getElementById('confirmBindBtn').addEventListener('click', async function() {
+            await confirmBindAccount();
+        });
+        
+        // 绑定取消按钮事件
+        document.getElementById('cancelBindBtn').addEventListener('click', function() {
+            resetBindForm();
+        });
+        
+        // 验证账号
+        async function verifyBindAccount() {
+            const verifyBtn = document.getElementById('verifyBindBtn');
+            const statusMessage = document.getElementById('statusMessage');
+            const verifyResult = document.getElementById('verifyResult');
+            const verifyMessage = document.getElementById('verifyMessage');
+            const bindInfo = document.getElementById('bindInfo');
+            const bindResult = document.getElementById('bindResult');
+            
+            // 获取输入数据
+            const staffUserTalkId = document.getElementById('bindStaffTalkId').value.trim();
+            const dealerTalkId = document.getElementById('bindDealerTalkId').value.trim();
+            
+            // 验证输入
+            if (!staffUserTalkId) {
+                statusMessage.innerHTML = '<div class="error-message">请输入员工talkId</div>';
+                return;
+            }
+            if (!dealerTalkId) {
+                statusMessage.innerHTML = '<div class="error-message">请输入经销商/业务员talkId</div>';
+                return;
+            }
+            
+            // 获取token
+            const token = localStorage.getItem('talk915_token');
+            if (!token) {
+                statusMessage.innerHTML = '<div class="error-message">请先登录获取token</div>';
+                return;
+            }
+            
+            // 显示加载状态
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = '验证中...';
+            statusMessage.innerHTML = '<div class="success-message">正在验证账号信息...</div>';
+            verifyResult.style.display = 'none';
+            bindResult.style.display = 'none';
+            
+            try {
+                // 发送验证请求
+                const response = await fetch('https://www.talk915.com/users/adminStaff/bindDealerVerify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': navigator.userAgent,
+                        'Referer': 'https://www.talk915.com/admin/userManagement/staff/accountBinding',
+                        'Origin': 'https://www.talk915.com',
+                        'Sec-Fetch-Dest': 'empty',
+                        'Sec-Fetch-Mode': 'cors',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'token': token
+                    },
+                    body: JSON.stringify({
+                        staffUserTalkId: staffUserTalkId,
+                        dealerTalkId: dealerTalkId
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.resultCode === 0 && data.resultMessage === '操作成功') {
+                    // 验证成功，显示信息让用户确认
+                    bindVerificationData = data.resultData;
+                    
+                    // 填充验证信息
+                    document.getElementById('verifyStaffUserId').textContent = data.resultData.staffUserId || '-';
+                    document.getElementById('verifyStaffTalkId').textContent = data.resultData.staffTalkId || '-';
+                    document.getElementById('verifyStaffUserName').textContent = data.resultData.staffUserName || '-';
+                    document.getElementById('verifyDealerTalkId').textContent = data.resultData.dealerTalkId || '-';
+                    document.getElementById('verifyDealerName').textContent = data.resultData.dealerName || '-';
+                    
+                    // 显示验证成功信息
+                    verifyMessage.innerHTML = '<div class="success-message">验证成功！请确认以下信息是否正确</div>';
+                    bindInfo.style.display = 'block';
+                    verifyResult.style.display = 'block';
+                    statusMessage.innerHTML = '';
+                } else {
+                    // 验证失败，显示错误信息
+                    verifyMessage.innerHTML = `<div class="error-message">${data.resultMessage || '验证失败'}</div>`;
+                    bindInfo.style.display = 'none';
+                    verifyResult.style.display = 'block';
+                    bindVerificationData = null;
+                }
+            } catch (error) {
+                console.error('验证错误:', error);
+                verifyMessage.innerHTML = '<div class="error-message">网络请求出错: ' + error.message + '</div>';
+                bindInfo.style.display = 'none';
+                verifyResult.style.display = 'block';
+                bindVerificationData = null;
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = '提交验证';
+            }
+        }
+        
+        // 确认绑定
+        async function confirmBindAccount() {
+            const confirmBtn = document.getElementById('confirmBindBtn');
+            const statusMessage = document.getElementById('statusMessage');
+            const verifyResult = document.getElementById('verifyResult');
+            const bindResult = document.getElementById('bindResult');
+            const bindResultMessage = document.getElementById('bindResultMessage');
+            
+            // 检查是否有验证数据
+            if (!bindVerificationData) {
+                alert('请先进行验证');
+                return;
+            }
+            
+            // 获取token
+            const token = localStorage.getItem('talk915_token');
+            if (!token) {
+                statusMessage.innerHTML = '<div class="error-message">请先登录获取token</div>';
+                return;
+            }
+            
+            // 显示加载状态
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '绑定中...';
+            statusMessage.innerHTML = '<div class="success-message">正在执行绑定...</div>';
+            
+            try {
+                // 发送绑定请求
+                const response = await fetch('https://www.talk915.com/users/adminStaff/bindDealer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': navigator.userAgent,
+                        'Referer': 'https://www.talk915.com/admin/userManagement/staff/accountBinding',
+                        'Origin': 'https://www.talk915.com',
+                        'Sec-Fetch-Dest': 'empty',
+                        'Sec-Fetch-Mode': 'cors',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'token': token
+                    },
+                    body: JSON.stringify({
+                        staffUserTalkId: bindVerificationData.staffTalkId,
+                        dealerTalkId: bindVerificationData.dealerTalkId
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                // 显示绑定结果
+                if (response.ok && data.resultCode === 0) {
+                    bindResultMessage.innerHTML = `<div class="success-message">${data.resultMessage || '绑定成功'}</div>`;
+                } else {
+                    bindResultMessage.innerHTML = `<div class="error-message">${data.resultMessage || '绑定失败'}</div>`;
+                }
+                
+                bindResult.style.display = 'block';
+                verifyResult.style.display = 'none';
+                statusMessage.innerHTML = '';
+            } catch (error) {
+                console.error('绑定错误:', error);
+                bindResultMessage.innerHTML = '<div class="error-message">网络请求出错: ' + error.message + '</div>';
+                bindResult.style.display = 'block';
+                verifyResult.style.display = 'none';
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认绑定';
+            }
+        }
+        
+        // 重置绑定表单
+        function resetBindForm() {
+            document.getElementById('bindStaffTalkId').value = '';
+            document.getElementById('bindDealerTalkId').value = '';
+            document.getElementById('verifyResult').style.display = 'none';
+            document.getElementById('bindResult').style.display = 'none';
+            document.getElementById('statusMessage').innerHTML = '';
+            bindVerificationData = null;
         }
         
         // ==================== 充值订单明细相关函数 ====================
