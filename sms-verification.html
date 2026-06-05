@@ -1196,7 +1196,19 @@
                 };
                 
                 console.log('=== 完整请求体 ===');
+                console.log('请求体长度:', JSON.stringify(requestBody).length);
                 console.log(JSON.stringify(requestBody, null, 2));
+                
+                // 验证请求体结构
+                console.log('=== 请求体验证 ===');
+                console.log('id长度:', captchaId.length);
+                console.log('track.data:', trackData.data);
+                console.log('track.bgImageWidth:', trackData.bgImageWidth);
+                console.log('track.bgImageHeight:', trackData.bgImageHeight);
+                console.log('track.trackList长度:', trackData.trackList.length);
+                console.log('track.startSlidingTime:', trackData.startSlidingTime);
+                console.log('track.endSlidingTime:', trackData.endSlidingTime);
+                console.log('track.entSlidingTime:', trackData.entSlidingTime);
                 
                 const response = await fetch('https://www.keyclass.cn/studentServer/tianai/verify', {
                     method: 'POST',
@@ -1313,7 +1325,7 @@
                 data: distance,
                 startSlidingTime: startTime,
                 endSlidingTime: endTime,
-                entSlidingTime: endTime,
+                entSlidingTime: endTime, // 新增：与endSlidingTime相同
                 trackList: trackList
             };
         }
