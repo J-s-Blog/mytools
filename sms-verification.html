@@ -1004,7 +1004,7 @@
             const distanceValue = document.getElementById('distanceValue');
             
             btn.disabled = true;
-            info.innerHTML = '正在分析图片...';
+            info.innerHTML = '<span style="color: blue;">正在分析图片...</span>';
             
             // 创建canvas用于图像处理
             const bgCanvas = document.createElement('canvas');
@@ -1037,9 +1037,18 @@
                     // 使用边缘检测算法找到缺口位置
                     const gapDistance = findGapPosition(bgData, sliderData, bgCanvas.width, bgCanvas.height);
                     
-                    distanceValue.textContent = gapDistance;
+                    // 转换为300px宽度的坐标（验证接口期望的尺寸）
+                    const scale = 300 / bgCanvas.width;
+                    const scaledDistance = Math.round(gapDistance * scale);
+                    
+                    console.log('原始图片宽度:', bgCanvas.width);
+                    console.log('原始缺口距离:', gapDistance);
+                    console.log('缩放比例:', scale);
+                    console.log('缩放后距离:', scaledDistance);
+                    
+                    distanceValue.textContent = scaledDistance;
                     distanceDiv.style.display = 'block';
-                    info.innerHTML = `分析完成，缺口距离: ${gapDistance}px`;
+                    info.innerHTML = `<span style="color: green;">分析完成</span><br>原始距离: ${gapDistance}px → 缩放后: ${scaledDistance}px`;
                     
                     // 启用提交按钮
                     document.getElementById('submitCaptchaBtn').disabled = false;
