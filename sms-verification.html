@@ -1169,6 +1169,17 @@
                 const trackData = generateFullTrack(distance);
                 console.log('轨迹数据:', trackData);
                 
+                const requestBody = {
+                    id: captchaId,
+                    track: trackData,
+                    phone: phone,
+                    companyId: 1,
+                    languageType: null
+                };
+                
+                console.log('=== 完整请求体 ===');
+                console.log(JSON.stringify(requestBody, null, 2));
+                
                 const response = await fetch('https://www.keyclass.cn/studentServer/tianai/verify', {
                     method: 'POST',
                     headers: {
@@ -1180,13 +1191,7 @@
                         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0'
                     },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        id: captchaId,
-                        track: trackData,
-                        phone: phone,
-                        companyId: 1,
-                        languageType: null
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 console.log('响应状态:', response.status);
@@ -1205,6 +1210,8 @@
                         info.innerHTML = '<span style="color: red;">验证失败: ' + data.resultMessage + '</span>';
                     }
                 } else {
+                    const errorText = await response.text();
+                    console.error('错误响应:', errorText);
                     info.innerHTML = '<span style="color: red;">验证失败: HTTP ' + response.status + '</span>';
                 }
                 
