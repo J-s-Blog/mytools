@@ -648,6 +648,7 @@
                                             <th>顾问姓名</th>
                                             <th>顾问empID</th>
                                             <th>单日领取新用户上限</th>
+                                            <th>当日实际领取用户数</th>
                                             <th>公海池用户数</th>
                                             <th>领取时间差平均值(分钟)</th>
                                             <th>跟进时间差平均值(分钟)</th>
@@ -1434,7 +1435,7 @@
         });
 
         // 填充表格数据
-        function populateTables(data, specialHoldData) {
+        function populateTables(data, specialHoldData, footfallStats) {
             // 1. 填充明细表
             const detailTable = document.getElementById('detailTable').querySelector('tbody');
             detailTable.innerHTML = '';
@@ -1621,6 +1622,7 @@
                         staffName: item.staffName || '未知',
                         staffTalkId: item.staffTalkId || '-',
                         todayUserGetLimit: '-',
+                        todayFootfallCount: 0,
                         count: 0,
                         receiveTimeDiffSum: 0,
                         receiveTimeDiffCount: 0,
@@ -1792,6 +1794,15 @@
                         });
                     }
                     
+                    // 匹配领取记录统计数据
+                    if (footfallStats && typeof footfallStats === 'object') {
+                        Object.values(staffSummary).forEach(item => {
+                            if (footfallStats[item.staffName] !== undefined) {
+                                item.todayFootfallCount = footfallStats[item.staffName];
+                            }
+                        });
+                    }
+                    
                     const staffSummaryTable = document.getElementById('staffSummaryTable').querySelector('tbody');
                     staffSummaryTable.innerHTML = '';
                     
@@ -1804,6 +1815,12 @@
                             ? (item.followTimeDiffSum / item.followTimeDiffCount).toFixed(2) 
                             : '-';
                         
+                        // 判断是否需要黄色背景
+                        const limit = parseInt(item.todayUserGetLimit);
+                        const actual = item.todayFootfallCount;
+                        const isOverLimit = !isNaN(limit) && actual >= limit;
+                        const footfallStyle = isOverLimit ? 'style="background-color: yellow;"' : '';
+                        
                         const row = document.createElement('tr');
                         const noFollowDetailsText = item.noFollowDetails.length > 0 ? item.noFollowDetails.join('；<br>') : '-';
                         row.innerHTML = `
@@ -1811,6 +1828,7 @@
                             <td>${item.staffName}</td>
                             <td>${item.staffTalkId}</td>
                             <td>${item.todayUserGetLimit}</td>
+                            <td ${footfallStyle}>${item.todayFootfallCount}</td>
                             <td>${item.count}</td>
                             <td>${avgReceiveTimeDiff}</td>
                             <td>${avgFollowTimeDiff}</td>
@@ -1834,6 +1852,15 @@
                     });
                 }
                 
+                // 匹配领取记录统计数据
+                if (footfallStats && typeof footfallStats === 'object') {
+                    Object.values(staffSummary).forEach(item => {
+                        if (footfallStats[item.staffName] !== undefined) {
+                            item.todayFootfallCount = footfallStats[item.staffName];
+                        }
+                    });
+                }
+                
                 const staffSummaryTable = document.getElementById('staffSummaryTable').querySelector('tbody');
                 staffSummaryTable.innerHTML = '';
                 
@@ -1843,6 +1870,12 @@
                         ? (item.receiveTimeDiffSum / item.receiveTimeDiffCount).toFixed(2) 
                         : '-';
                     
+                    // 判断是否需要黄色背景
+                    const limit = parseInt(item.todayUserGetLimit);
+                    const actual = item.todayFootfallCount;
+                    const isOverLimit = !isNaN(limit) && actual >= limit;
+                    const footfallStyle = isOverLimit ? 'style="background-color: yellow;"' : '';
+                    
                     const row = document.createElement('tr');
                     const noFollowDetailsText = item.noFollowDetails.length > 0 ? item.noFollowDetails.join('；<br>') : '-';
                     row.innerHTML = `
@@ -1850,6 +1883,7 @@
                         <td>${item.staffName}</td>
                         <td>${item.staffTalkId}</td>
                         <td>${item.todayUserGetLimit}</td>
+                        <td ${footfallStyle}>${item.todayFootfallCount}</td>
                         <td>${item.count}</td>
                         <td>${avgReceiveTimeDiff}</td>
                         <td>-</td>
@@ -4422,8 +4456,13 @@
                     const specialHoldData = await fetchSpecialHoldData();
                     console.log('保有量配置数据查询完成，共', specialHoldData.length, '条记录');
                     
-                    // 处理数据并填充表格（传递保有量配置数据）
-                    populateTables(data.resultData, specialHoldData);
+                    // 查询领取记录数据
+                    console.log('开始查询领取记录数据...');
+                    const footfallStats = await fetchFootfallRecordData(createStartTime, createEndTime);
+                    console.log('领取记录数据查询完成');
+                    
+                    // 处理数据并填充表格（传递保有量配置数据和领取记录统计）
+                    populateTables(data.resultData, specialHoldData, footfallStats);
                     seaPoolResult.style.display = 'block';
                     statusMessage.innerHTML = ``;
                     resultStatus.innerHTML = `<div class="success-message">查询成功！共${data.totalCount}条记录</div>`;
@@ -4761,6 +4800,7 @@
                 { header: '顾问姓名', key: 'staffName', width: 20 },
                 { header: '顾问empID', key: 'staffTalkId', width: 20 },
                 { header: '单日领取新用户上限', key: 'todayUserGetLimit', width: 15, style: { alignment: { horizontal: 'right' } } },
+                { header: '当日实际领取用户数', key: 'todayFootfallCount', width: 15, style: { alignment: { horizontal: 'right' } } },
                 { header: '公海池用户数', key: 'count', width: 15, style: { alignment: { horizontal: 'right' } } },
                 { header: '领取时间差平均值(分钟)', key: 'avgReceiveTimeDiff', width: 18, style: { numFmt: '0.00', alignment: { horizontal: 'right' } } },
                 { header: '跟进时间差平均值(分钟)', key: 'avgFollowTimeDiff', width: 18, style: { numFmt: '0.00', alignment: { horizontal: 'right' } } },
@@ -4779,6 +4819,7 @@
                         staffName: item.staffName || '未知',
                         staffTalkId: item.staffTalkId || '-',
                         todayUserGetLimit: '-',
+                        todayFootfallCount: 0,
                         count: 0,
                         receiveTimeDiffSum: 0,
                         receiveTimeDiffCount: 0,
@@ -4953,6 +4994,18 @@
                 });
             }
             
+            // 查询领取记录数据并匹配
+            const createStartTime = document.getElementById('createStartTime').value;
+            const createEndTime = document.getElementById('createEndTime').value;
+            const footfallStats = await fetchFootfallRecordData(createStartTime, createEndTime);
+            if (footfallStats && typeof footfallStats === 'object') {
+                Object.values(staffSummary).forEach(item => {
+                    if (footfallStats[item.staffName] !== undefined) {
+                        item.todayFootfallCount = footfallStats[item.staffName];
+                    }
+                });
+            }
+            
             // 填充顾问汇总表数据
             Object.values(staffSummary).forEach((item, index) => {
                 // 计算平均值
@@ -4969,6 +5022,7 @@
                     staffName: item.staffName,
                     staffTalkId: item.staffTalkId,
                     todayUserGetLimit: item.todayUserGetLimit,
+                    todayFootfallCount: item.todayFootfallCount,
                     count: item.count,
                     avgReceiveTimeDiff: parseFloat(avgReceiveTimeDiff) || '-',
                     avgFollowTimeDiff: parseFloat(avgFollowTimeDiff) || '-',
@@ -5194,6 +5248,92 @@
             } catch (error) {
                 console.error('获取保有量配置数据异常:', error);
                 return [];
+            }
+        }
+        
+        // 获取领取记录数据（仅返回数据，不操作UI）
+        async function fetchFootfallRecordData(startDate, endDate) {
+            const token = localStorage.getItem('talk915_token');
+            if (!token) {
+                console.log('没有token，无法获取领取记录数据');
+                return [];
+            }
+            
+            try {
+                // 计算日期范围，拆分成每天查询
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const dates = [];
+                
+                while (start <= end) {
+                    dates.push(start.toISOString().split('T')[0]);
+                    start.setDate(start.getDate() + 1);
+                }
+                
+                console.log('领取记录查询日期范围:', dates);
+                
+                // 逐个日期查询
+                const allRecords = [];
+                for (const date of dates) {
+                    const payload = {
+                        "userRegisterType": 1,
+                        "teachCourse": "",
+                        "userInfo": "",
+                        "staffInfo": "",
+                        "operatorInfo": "",
+                        "createStartTime": date,
+                        "createEndTime": date,
+                        "changeReason": "",
+                        "status": 0,
+                        "currPage": 0,
+                        "pageSize": 5000
+                    };
+                    
+                    const response = await fetch('https://www.talk915.com/users/adminSeaPool/querySeaPoolFootfallRecord', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json;charset=UTF-8',
+                            'Accept': 'application/json, text/plain, */*',
+                            'User-Agent': navigator.userAgent,
+                            'Referer': 'https://www.talk915.com/admin/publicPoolManage/operationRecord/stuInAndOutRecord',
+                            'Origin': 'https://www.talk915.com',
+                            'Sec-Fetch-Dest': 'empty',
+                            'Sec-Fetch-Mode': 'cors',
+                            'Sec-Fetch-Site': 'same-origin',
+                            'token': token
+                        },
+                        body: JSON.stringify(payload),
+                        credentials: 'include'
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok && data.resultCode === 0 && data.resultData) {
+                        console.log(`领取记录查询日期${date}成功，共${data.resultData.length}条记录`);
+                        allRecords.push(...data.resultData);
+                    } else {
+                        console.log(`领取记录查询日期${date}失败:`, data.resultMessage);
+                    }
+                }
+                
+                console.log('领取记录查询完成，总记录数:', allRecords.length);
+                
+                // 按staffName统计changeReason为2的数据数量
+                const footfallStats = {};
+                allRecords.forEach(record => {
+                    if (record.changeReason === 2) {
+                        const staffName = record.staffName || '未知';
+                        if (!footfallStats[staffName]) {
+                            footfallStats[staffName] = 0;
+                        }
+                        footfallStats[staffName]++;
+                    }
+                });
+                
+                console.log('领取记录统计结果:', footfallStats);
+                return footfallStats;
+            } catch (error) {
+                console.error('获取领取记录数据异常:', error);
+                return {};
             }
         }
         
