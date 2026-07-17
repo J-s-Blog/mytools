@@ -636,6 +636,7 @@
                             <button class="sub-tab-button" data-tab="courseSummary">推荐码汇总</button>
                             <button class="sub-tab-button" data-tab="detail">明细表</button>
                             <button class="sub-tab-button" data-tab="unallocated">待分配用户列表</button>
+                            <button class="sub-tab-button" data-tab="canceledUsers">注销用户列表</button>
                         </div>
                         
                         <!-- 顾问汇总表 -->
@@ -716,6 +717,24 @@
                                             <th>注册时间</th>
                                             <th>是否试听</th>
                                             <th>是否成交</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- 注销用户列表 -->
+                        <div id="canceledUsers" class="sub-tab-content">
+                            <div class="table-container">
+                                <table id="canceledUsersTable" class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>序号</th>
+                                            <th>顾问姓名</th>
+                                            <th>顾问empID</th>
+                                            <th>推荐码</th>
+                                            <th>用户ID</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -1962,6 +1981,23 @@
                     <td>${item.count}</td>
                 `;
                 courseSummaryTable.appendChild(row);
+            });
+            
+            // 4. 填充注销用户列表
+            const canceledUsersTable = document.getElementById('canceledUsersTable').querySelector('tbody');
+            canceledUsersTable.innerHTML = '';
+            
+            const canceledUserData = window.canceledUserData || [];
+            canceledUserData.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${item.staffName}</td>
+                    <td>${item.staffTalkId}</td>
+                    <td>${item.teachCourse}</td>
+                    <td>${item.userId}</td>
+                `;
+                canceledUsersTable.appendChild(row);
             });
         }
 
@@ -5227,6 +5263,7 @@
         
         // 获取领取记录数据（仅返回数据，不操作UI）
         async function fetchFootfallRecordData(startDate, endDate) {
+            window.canceledUserData = [];
             const token = localStorage.getItem('talk915_token');
             if (!token) {
                 console.log('没有token，无法获取领取记录数据');
@@ -5293,6 +5330,7 @@
                 
                 // 按staffName统计changeReason为2的数据数量，同时统计phone为空的注销用户数
                 const footfallStats = {};
+                const canceledUsers = [];
                 allRecords.forEach(record => {
                     if (record.changeReason === 2) {
                         const staffName = record.staffName || '未知';
@@ -5305,11 +5343,18 @@
                         footfallStats[staffName].todayFootfallCount++;
                         if (!record.phone || record.phone === '') {
                             footfallStats[staffName].canceledUserCount++;
+                            canceledUsers.push({
+                                staffName: record.staffName || '未知',
+                                staffTalkId: record.staffTalkId || '-',
+                                teachCourse: record.teachCourse || '-',
+                                userId: record.userId || record.user_id || '-'
+                            });
                         }
                     }
                 });
                 
                 console.log('领取记录统计结果:', footfallStats);
+                window.canceledUserData = canceledUsers;
                 return footfallStats;
             } catch (error) {
                 console.error('获取领取记录数据异常:', error);
