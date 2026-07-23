@@ -1598,6 +1598,9 @@
                     }
                 }
                 
+                // 如果salesmanTalkId为空，显示"海外用户"
+                const salesmanDisplay = (!item.salesmanTalkId || item.salesmanTalkId === '') ? '海外用户' : item.salesmanTalkId;
+                
                 // 显示加载中
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -1605,7 +1608,7 @@
                     <td>${item.staffName || '-'}</td>
                     <td>${item.staffTalkId || '-'}</td>
                     <td>${item.teachCourse || '-'}</td>
-                    <td>${item.salesmanTalkId || '-'}</td>
+                    <td>${salesmanDisplay}</td>
                     <td>${item.userId || '-'}</td>
                     <td>${formatDate(item.createTime)}</td>
                     <td>${formatDate(item.receiveTime)}</td>
@@ -4469,7 +4472,7 @@
                     
                     // 查询领取记录数据
                     console.log('开始查询领取记录数据...');
-                    const footfallStats = await fetchFootfallRecordData(createStartTime, createEndTime);
+                    const footfallStats = await fetchFootfallRecordData(createStartTime, createEndTime, data.resultData);
                     console.log('领取记录数据查询完成');
                     
                     // 处理数据并填充表格（传递保有量配置数据和领取记录统计）
@@ -4787,12 +4790,15 @@
                     
                     const followTimeDiff = calculateFollowTimeDiff(item.receiveTime, record.followRecord);
                     
+                    // 如果salesmanTalkId为空，显示"海外用户"
+                    const salesmanDisplay = (!item.salesmanTalkId || item.salesmanTalkId === '') ? '海外用户' : item.salesmanTalkId;
+                    
                     detailSheet.addRow({
                         index: index + 1,
                         staffName: item.staffName || '-',
                         staffTalkId: item.staffTalkId || '-',
                         teachCourse: item.teachCourse || '-',
-                        salesmanTalkId: item.salesmanTalkId || '-',
+                        salesmanTalkId: salesmanDisplay,
                         userId: item.userId || '-',
                         createTime: formatDate(item.createTime),
                         receiveTime: formatDate(item.receiveTime),
@@ -5010,7 +5016,7 @@
             // 查询领取记录数据并匹配
             const createStartTime = document.getElementById('createStartTime').value;
             const createEndTime = document.getElementById('createEndTime').value;
-            const footfallStats = await fetchFootfallRecordData(createStartTime, createEndTime);
+            const footfallStats = await fetchFootfallRecordData(createStartTime, createEndTime, window.seaPoolData);
             if (footfallStats && typeof footfallStats === 'object') {
                 Object.values(staffSummary).forEach(item => {
                     if (footfallStats[item.staffName] !== undefined) {
@@ -5262,8 +5268,16 @@
         }
         
         // 获取领取记录数据（仅返回数据，不操作UI）
-        async function fetchFootfallRecordData(startDate, endDate) {
+        async function fetchFootfallRecordData(startDate, endDate, seaPoolData) {
             window.canceledUserData = [];
+            // 构建公海池userId索引，用于快速查找用户是否在公海池中
+            const seaPoolUserMap = {};
+            if (seaPoolData && Array.isArray(seaPoolData)) {
+                seaPoolData.forEach(item => {
+                    seaPoolUserMap[item.userId] = item;
+                });
+            }
+            
             const token = localStorage.getItem('talk915_token');
             if (!token) {
                 console.log('没有token，无法获取领取记录数据');
@@ -5329,8 +5343,10 @@
                 console.log('领取记录查询完成，总记录数:', allRecords.length);
                 
                 // 按staffName统计changeReason为2的数据数量，同时统计phone为空的注销用户数
+                // 但如果用户在公海池中且salesmanTalkId为空，则视为"海外用户"，不计入注销用户
                 const footfallStats = {};
                 const canceledUsers = [];
+                const overseasUsers = [];
                 allRecords.forEach(record => {
                     if (record.changeReason === 2) {
                         const staffName = record.staffName || '未知';
@@ -5342,18 +5358,37 @@
                         }
                         footfallStats[staffName].todayFootfallCount++;
                         if (!record.phone || record.phone === '') {
-                            footfallStats[staffName].canceledUserCount++;
-                            canceledUsers.push({
-                                staffName: record.staffName || '未知',
-                                staffTalkId: record.staffTalkId || '-',
-                                teachCourse: record.teachCourse || '-',
-                                userId: record.userId || record.user_id || '-'
-                            });
+                            // 检查该用户是否在公海池中
+                            const userId = record.userId || record.user_id;
+                            const seaPoolItem = seaPoolUserMap[userId];
+                            
+                            if (seaPoolItem && (!seaPoolItem.salesmanTalkId || seaPoolItem.salesmanTalkId === '')) {
+                                // 用户在公海池中且salesmanTalkId为空，视为"海外用户"
+                                overseasUsers.push({
+                                    userId: userId,
+                                    staffName: seaPoolItem.staffName || record.staffName || '未知',
+                                    teacherType: seaPoolItem.teacherType || '-',
+                                    isDeal: seaPoolItem.isDeal || 0
+                                });
+                            } else {
+                                // 否则视为注销用户
+                                footfallStats[staffName].canceledUserCount++;
+                                canceledUsers.push({
+                                    staffName: record.staffName || '未知',
+                                    staffTalkId: record.staffTalkId || '-',
+                                    teachCourse: record.teachCourse || '-',
+                                    userId: userId || '-'
+                                });
+                            }
                         }
                     }
                 });
                 
+                // 存储海外用户信息
+                window.overseasUserData = overseasUsers;
+                
                 console.log('领取记录统计结果:', footfallStats);
+                console.log('海外用户数:', overseasUsers.length);
                 window.canceledUserData = canceledUsers;
                 return footfallStats;
             } catch (error) {
