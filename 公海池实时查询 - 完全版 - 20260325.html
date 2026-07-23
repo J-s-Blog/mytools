@@ -1456,6 +1456,14 @@
 
         // 填充表格数据
         function populateTables(data, specialHoldData, footfallStats) {
+            // 构建海外用户ID集合（只有phone为空且salesmanTalkId为空的用户才是海外用户）
+            const overseasUserIds = new Set();
+            if (window.overseasUserData && Array.isArray(window.overseasUserData)) {
+                window.overseasUserData.forEach(u => {
+                    overseasUserIds.add(String(u.userId));
+                });
+            }
+            
             // 1. 填充明细表
             const detailTable = document.getElementById('detailTable').querySelector('tbody');
             detailTable.innerHTML = '';
@@ -1598,8 +1606,10 @@
                     }
                 }
                 
-                // 如果salesmanTalkId为空，显示"海外用户"
-                const salesmanDisplay = (!item.salesmanTalkId || item.salesmanTalkId === '') ? '海外用户' : item.salesmanTalkId;
+                // 只有phone为空且salesmanTalkId为空的用户才标记为"海外用户"
+                const isOverseasUser = overseasUserIds.has(String(item.userId));
+                const salesmanDisplay = isOverseasUser ? '海外用户' : (item.salesmanTalkId || '-');
+                const teachCourseDisplay = isOverseasUser && item.teachCourse ? item.teachCourse + '-海外' : (item.teachCourse || '-');
                 
                 // 显示加载中
                 const row = document.createElement('tr');
@@ -1607,7 +1617,7 @@
                     <td>${index + 1}</td>
                     <td>${item.staffName || '-'}</td>
                     <td>${item.staffTalkId || '-'}</td>
-                    <td>${item.teachCourse || '-'}</td>
+                    <td>${teachCourseDisplay}</td>
                     <td>${salesmanDisplay}</td>
                     <td>${item.userId || '-'}</td>
                     <td>${formatDate(item.createTime)}</td>
@@ -1960,13 +1970,15 @@
                 });
             }
             
-            // 3. 填充推荐码汇总表
+            // 3. 填充推荐码汇总表（海外用户的推荐码加"-海外"后缀）
             const courseSummary = {};
             data.forEach(item => {
-                const key = item.teachCourse || '未知';
+                const isOverseasUser = overseasUserIds.has(String(item.userId));
+                const teachCourse = item.teachCourse || '未知';
+                const key = isOverseasUser && item.teachCourse ? item.teachCourse + '-海外' : teachCourse;
                 if (!courseSummary[key]) {
                     courseSummary[key] = {
-                        teachCourse: item.teachCourse || '未知',
+                        teachCourse: key,
                         count: 0
                     };
                 }
@@ -4562,6 +4574,14 @@
                 return;
             }
             
+            // 构建海外用户ID集合
+            const overseasUserIds = new Set();
+            if (window.overseasUserData && Array.isArray(window.overseasUserData)) {
+                window.overseasUserData.forEach(u => {
+                    overseasUserIds.add(String(u.userId));
+                });
+            }
+            
             // 显示加载状态
             const exportBtn = document.getElementById('exportExcelBtn');
             const originalText = exportBtn.textContent;
@@ -4790,14 +4810,16 @@
                     
                     const followTimeDiff = calculateFollowTimeDiff(item.receiveTime, record.followRecord);
                     
-                    // 如果salesmanTalkId为空，显示"海外用户"
-                    const salesmanDisplay = (!item.salesmanTalkId || item.salesmanTalkId === '') ? '海外用户' : item.salesmanTalkId;
+                    // 使用已构建的海外用户ID集合判断
+                    const isOverseasUser = overseasUserIds.has(String(item.userId));
+                    const salesmanDisplay = isOverseasUser ? '海外用户' : (item.salesmanTalkId || '-');
+                    const teachCourseDisplay = isOverseasUser && item.teachCourse ? item.teachCourse + '-海外' : (item.teachCourse || '-');
                     
                     detailSheet.addRow({
                         index: index + 1,
                         staffName: item.staffName || '-',
                         staffTalkId: item.staffTalkId || '-',
-                        teachCourse: item.teachCourse || '-',
+                        teachCourse: teachCourseDisplay,
                         salesmanTalkId: salesmanDisplay,
                         userId: item.userId || '-',
                         createTime: formatDate(item.createTime),
@@ -5065,13 +5087,15 @@
                 { header: '公海池用户数', key: 'count', width: 15 }
             ];
             
-            // 计算推荐码汇总数据
+            // 计算推荐码汇总数据（海外用户的推荐码加"-海外"后缀）
             const courseSummary = {};
             data.forEach(item => {
-                const key = item.teachCourse || '未知';
+                const isOverseasUser = overseasUserIds.has(String(item.userId));
+                const teachCourse = item.teachCourse || '未知';
+                const key = isOverseasUser && item.teachCourse ? item.teachCourse + '-海外' : teachCourse;
                 if (!courseSummary[key]) {
                     courseSummary[key] = {
-                        teachCourse: item.teachCourse || '未知',
+                        teachCourse: key,
                         count: 0
                     };
                 }
